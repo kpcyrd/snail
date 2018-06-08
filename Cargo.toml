@@ -1,0 +1,33 @@
+[package]
+name = "snail"
+version = "0.1.0"
+description = "Parasitic network manager"
+authors = ["kpcyrd <git@rxv.cc>"]
+license = "GPL-3.0"
+repository = "https://github.com/kpcyrd/snail"
+categories = ["command-line-utilities"]
+readme = "README.md"
+
+[[bin]]
+name = "snaild"
+path = "src/bin/snaild.rs"
+doc = false
+test = false
+
+[[bin]]
+name = "snailctl"
+path = "src/bin/snailctl.rs"
+test = false
+
+[dependencies]
+failure = "0.1.1"
+hlua-badtouch = "0.4.2"
+structopt = "0.2"
+dbus = "0.6.1"
+log = "0.4"
+env_logger = "0.5"
+toml = "0.4"
+serde = "1.0"
+serde_derive = "1.0"
+reqwest = "0.8.6"
+kuchiki = "0.7"
