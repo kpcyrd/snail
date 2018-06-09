@@ -1,7 +1,7 @@
-name = "hamburg.freifunk.net"
+descr = "freifunk.net"
 
 function detect(network)
-    return network == "hamburg.freifunk.net"
+    return network:find("freifunk.net") ~= nil
 end
 
 function decap(infos)

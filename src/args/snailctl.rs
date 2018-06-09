@@ -17,7 +17,7 @@ pub struct Args {
 pub enum SubCommand {
     #[structopt(author = "",
                 name="scan",
-                about="Run a scan explicitly")]
+                about="Show nearby networks, needs root to trigger a scan")]
     Scan(Scan),
     #[structopt(author = "",
                 name="decap",
