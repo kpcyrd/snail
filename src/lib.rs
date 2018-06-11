@@ -6,13 +6,21 @@ extern crate trust_dns_resolver;
 extern crate reqwest;
 extern crate kuchiki;
 extern crate regex;
+extern crate nix;
+extern crate zmq;
+extern crate serde;
+#[macro_use] extern crate serde_derive;
+extern crate serde_json;
 
 pub use failure::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub mod args;
+pub mod config;
 pub mod decap;
+pub mod dhcp;
 pub mod dns;
+pub mod ipc;
 pub mod scripts;
 pub mod utils;
 pub mod wifi;

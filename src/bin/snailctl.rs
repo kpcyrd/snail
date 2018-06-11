@@ -12,8 +12,11 @@ use colored::Colorize;
 use snail::Result;
 use snail::args::snailctl::{Args, SubCommand};
 use snail::decap;
-use snail::dns;
+// use snail::dns;
+// use snail::dhcp;
 use snail::utils;
+
+// use std::env;
 
 
 fn run() -> Result<()> {
