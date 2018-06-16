@@ -9,6 +9,10 @@ pub struct Args {
                 help="Verbose output")]
     pub verbose: bool,
 
+    #[structopt(short="S", long="socket", default_value="ipc:///tmp/snail.sock",
+                help="snaild socket path")]
+    pub socket: String,
+
     pub interface: String,
 }
 

@@ -4,7 +4,7 @@ extern crate dbus;
 extern crate env_logger;
 extern crate colored;
 #[macro_use] extern crate log;
-// #[macro_use] extern crate failure;
+#[macro_use] extern crate failure;
 
 use structopt::StructOpt;
 use colored::Colorize;
@@ -12,9 +12,10 @@ use colored::Colorize;
 use snail::Result;
 use snail::args::snailctl::{Args, SubCommand};
 use snail::decap;
-// use snail::dns;
+use snail::dns::Resolver;
 // use snail::dhcp;
 use snail::utils;
+use snail::ipc::Client;
 
 // use std::env;
 
@@ -23,9 +24,15 @@ fn run() -> Result<()> {
     let args = Args::from_args();
 
     let mut env = env_logger::Env::default();
-    if args.verbose {
-        env = env.filter_or("RUST_LOG", "info");
-    }
+    match args.verbose {
+        0 => (),
+        1 => {
+            env = env.filter_or("RUST_LOG", "info");
+        },
+        _ => {
+            env = env.filter_or("RUST_LOG", "debug");
+        },
+    };
     env_logger::init_from_env(env);
 
     match args.subcommand {
@@ -69,7 +76,15 @@ fn run() -> Result<()> {
         Some(SubCommand::Decap(_decap)) => {
             // snail::scripts::loader::loader
 
-            let walled_garden = match decap::detect_walled_garden()? {
+            let mut client = Client::connect(&args.socket)?;
+            let status = match client.status()? {
+                Some(status) => status,
+                None => bail!("not connected to a network"),
+            };
+
+            let resolver = Resolver::with_udp(&status.dns)?;
+
+            let walled_garden = match decap::detect_walled_garden(resolver)? {
                 Some(walled_garden) => walled_garden,
                 None => {
                     println!("[+] no walled garden detected");
@@ -79,6 +94,48 @@ fn run() -> Result<()> {
 
             println!("[!] walled garden connection detected!");
             println!("{:?}", walled_garden);
+        },
+        Some(SubCommand::Status(_decap)) => {
+            let mut client = Client::connect(&args.socket)?;
+
+            match client.status()? {
+                Some(status) => {
+                    println!("network: {}", match status.ssid {
+                        Some(ssid) => format!("{:?}", ssid).green(),
+                        None       => "unknown".yellow(),
+                    });
+                    println!("router:  {:?}", status.router);
+                    println!("dns:     {:?}", status.dns);
+                    println!("uplink:  {}", match status.has_uplink {
+                        Some(true)  => "yes".green(),
+                        Some(false) => "no".red(),
+                        None        => "unknown".yellow(),
+                    });
+                    println!("script:  {}", match status.script_used {
+                        Some(script) => format!("{:?}", script),
+                        None         => "none".to_string(),
+                    });
+                },
+                None => {
+                    println!("network: {}", "none".red());
+                }
+            }
+        },
+        Some(SubCommand::Dns(dns)) => {
+            let mut client = Client::connect(&args.socket)?;
+
+            match client.status()? {
+                Some(status) => {
+                    let resolver = Resolver::with_udp(&status.dns)?;
+                    for ip in resolver.resolve(&dns.query)? {
+                        println!("{}", ip);
+                    }
+                },
+                None => bail!("no active network"),
+            }
+        },
+        Some(SubCommand::Http(_http)) => {
+            println!("unimplemented");
         },
         None => {
             let default_scripts = snail::scripts::load_default_scripts()?;

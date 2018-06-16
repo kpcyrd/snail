@@ -1,3 +1,4 @@
+// TODO: socket permissions are currently disabled
 use zmq;
 use serde_json;
 
@@ -5,18 +6,21 @@ use ::Result;
 use std::fs::{self, Permissions};
 use std::os::unix::fs::PermissionsExt;
 use dhcp::NetworkUpdate;
+use wifi::NetworkStatus;
 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CtlRequest {
     Ping,
     DhcpEvent(NetworkUpdate),
+    StatusRequest,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CtlReply {
     Pong,
     Ack,
+    Status(Option<NetworkStatus>),
 }
 
 
@@ -36,7 +40,9 @@ impl Server {
         // fix permissions
         if url.starts_with("ipc://") {
             // TODO: write a proper solution
-            let perms = Permissions::from_mode(0o770);
+            // let perms = Permissions::from_mode(0o770);
+            // TODO: FIXME: socket perissions are fully disabled
+            let perms = Permissions::from_mode(0o777);
             fs::set_permissions(&url[6..], perms)?;
         }
 
@@ -91,5 +97,13 @@ impl Client {
 
         debug!("ctl(rep): {:?}", rep);
         Ok(rep)
+    }
+
+    pub fn status(&mut self) -> Result<Option<NetworkStatus>> {
+        if let CtlReply::Status(status) = self.send(&CtlRequest::StatusRequest)? {
+            Ok(status)
+        } else {
+            bail!("Wrong ctl reply");
+        }
     }
 }
