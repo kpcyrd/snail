@@ -16,17 +16,19 @@ use ::Result;
 
 mod connector;
 use self::connector::Connector;
-use dns::Resolver;
+use dns::DnsResolver;
+pub mod structs;
 
 
-pub struct Client {
+#[derive(Debug)]
+pub struct Client<R: DnsResolver> {
     client: hyper::Client<HttpsConnector<Connector<HttpConnector>>>,
-    resolver: Resolver,
+    resolver: R,
     records: Arc<Mutex<HashMap<String, IpAddr>>>,
 }
 
-impl Client {
-    pub fn new(resolver: Resolver) -> Client {
+impl<R: DnsResolver> Client<R> {
+    pub fn new(resolver: R) -> Client<R> {
         let records = Arc::new(Mutex::new(HashMap::new()));
         let https = Connector::https(records.clone());
         let client = hyper::Client::builder()
@@ -64,8 +66,22 @@ impl Client {
         self.pre_resolve(&url)?;
 
         let mut request = Request::builder();
-        let request = request.uri(url)
+        let request = request.uri(url.clone())
                .body(Body::empty())?;
+
+        self.request(&url, request)
+    }
+}
+
+pub trait HttpClient {
+    fn request(&self, url: &Uri, request: Request<hyper::Body>) -> Result<Response>;
+}
+
+impl<R: DnsResolver> HttpClient for Client<R> {
+    fn request(&self, url: &Uri, request: Request<hyper::Body>) -> Result<Response> {
+        info!("sending request to {:?}", url);
+
+        self.pre_resolve(url)?;
 
         let mut core = reactor::Core::new()?;
         let (parts, body) = core.run(self.client.request(request).and_then(|res| {
@@ -86,6 +102,7 @@ impl Client {
 pub struct Response {
     pub status: u16,
     pub headers: HashMap<String, String>,
+    pub cookies: Vec<String>,
     pub body: String,
 }
 
@@ -94,20 +111,28 @@ impl From<(Parts, String)> for Response {
         let parts = x.0;
         let body = x.1;
 
+        let cookies = parts.headers.get_all("set-cookie").into_iter()
+                        .flat_map(|x| x.to_str().map(|x| x.to_owned()).ok())
+                        .collect();
+
+        let mut headers = HashMap::new();
+
+        for (k, v) in parts.headers {
+            if let Some(k) = k {
+                if let Ok(v) = v.to_str() {
+                    let k = String::from(k.as_str());
+                    let v = String::from(v);
+
+                    headers.insert(k, v);
+                }
+            }
+        }
+
         Response {
             status: parts.status.as_u16(),
-            headers: parts.headers.into_iter()
-                        .filter_map(|(k, v)| {
-                            match k {
-                                Some(k) => match v.to_str() {
-                                    Ok(v) => Some((String::from(k.as_str()), String::from(v))),
-                                    _ => None,
-                                },
-                                _ => None,
-                            }
-                        })
-                        .collect(),
-            body: body,
+            headers,
+            cookies,
+            body,
         }
     }
 }
@@ -116,6 +141,7 @@ impl From<(Parts, String)> for Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dns::Resolver;
 
     #[test]
     #[ignore]

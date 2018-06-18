@@ -12,12 +12,10 @@ use colored::Colorize;
 use snail::Result;
 use snail::args::snailctl::{Args, SubCommand};
 use snail::decap;
-use snail::dns::Resolver;
+use snail::dns::{Resolver, DnsResolver};
 // use snail::dhcp;
 use snail::utils;
 use snail::ipc::Client;
-
-// use std::env;
 
 
 fn run() -> Result<()> {
@@ -39,7 +37,9 @@ fn run() -> Result<()> {
         Some(SubCommand::Scan(scan)) => {
             // println!("scanning on {:?}", scan.interface);
 
-            let scripts = snail::scripts::load_all_scripts()?;
+            // there is no network status, so we just use a default environment
+            let loader = snail::scripts::Loader::default();
+            let scripts = loader.load_all_scripts()?;
 
             let networks = utils::scan_wifi(&scan.interface)?;
             for network in networks {
@@ -138,8 +138,11 @@ fn run() -> Result<()> {
             println!("unimplemented");
         },
         None => {
-            let default_scripts = snail::scripts::load_default_scripts()?;
-            let private_scripts = snail::scripts::load_private_scripts()?;
+            // use empty network status, we don't support function calls here
+            let loader = snail::scripts::Loader::default();
+
+            let default_scripts = loader.load_default_scripts()?;
+            let private_scripts = loader.load_private_scripts()?;
             print!("snailctl - parasitic network manager
 
 \x1b[32m    o    o     \x1b[33m__ __

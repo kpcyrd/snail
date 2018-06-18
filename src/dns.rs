@@ -1,6 +1,7 @@
 use ::Result;
 use std::time::Duration;
 use std::net::IpAddr;
+use std::fmt;
 
 use futures::Future;
 use futures::Poll;
@@ -58,8 +59,20 @@ impl Resolver {
     pub fn transform(lookup: LookupIp) -> Vec<IpAddr> {
         lookup.iter().collect()
     }
+}
 
-    pub fn resolve(&self, name: &str) -> Result<Vec<IpAddr>> {
+impl fmt::Debug for Resolver {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "Resolver {{ ... }}")
+    }
+}
+
+pub trait DnsResolver {
+    fn resolve(&self, name: &str) -> Result<Vec<IpAddr>>;
+}
+
+impl DnsResolver for Resolver {
+    fn resolve(&self, name: &str) -> Result<Vec<IpAddr>> {
         let response = match self.resolver.lookup_ip(name) {
             Ok(response) => Resolver::transform(response),
             Err(err) => bail!("resolve error: {}", err),
