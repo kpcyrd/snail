@@ -12,7 +12,7 @@ use std::net::IpAddr;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use http::Uri;
-use ::Result;
+use errors::Result;
 
 mod connector;
 use self::connector::Connector;

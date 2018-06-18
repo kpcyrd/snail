@@ -1,8 +1,10 @@
 mod dns;
-pub use self::dns::dns;
+pub use self::dns::*;
+mod html;
+pub use self::html::*;
 mod http;
-pub use self::http::{http_mksession,
-                     http_request,
-                     http_send};
+pub use self::http::*;
+mod json;
+pub use self::json::*;
 mod print;
-pub use self::print::print;
+pub use self::print::*;

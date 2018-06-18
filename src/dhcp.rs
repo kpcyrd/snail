@@ -1,4 +1,4 @@
-use ::Result;
+use errors::Result;
 /*
 use std::net::SocketAddr;
 use nix;

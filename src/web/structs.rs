@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Deref;
-use ::Result;
+use errors::Result;
 use hlua::AnyLuaValue;
 use scripts::ctx::State;
 use serde_json;

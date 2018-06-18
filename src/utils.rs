@@ -2,7 +2,7 @@
 
 use std::process::Command;
 use wifi::Network;
-use ::Result;
+use errors::Result;
 
 fn cmd(cmd: &str, args: &[&str]) -> Result<String> {
     let output = Command::new(cmd)

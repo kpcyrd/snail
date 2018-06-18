@@ -1,6 +1,6 @@
 # snail
 
-Parasitic network manager.
+Parasitic network manager. snail is the metasploit of network managers.
 
 ![logo](docs/logo.png)
 

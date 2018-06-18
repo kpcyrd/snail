@@ -2,7 +2,7 @@
 use zmq;
 use serde_json;
 
-use ::Result;
+use errors::Result;
 use std::fs::{self, Permissions};
 use std::os::unix::fs::PermissionsExt;
 use dhcp::NetworkUpdate;

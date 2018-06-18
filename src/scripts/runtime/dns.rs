@@ -1,4 +1,4 @@
-use ::{Result, Error};
+use errors::{Result, Error};
 use scripts::ctx::State;
 use dns::DnsResolver;
 use web::HttpClient;

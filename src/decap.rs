@@ -5,7 +5,7 @@ const PROBE_WALLED_GARDEN_URL: &str = "http://clients3.google.com/generate_204";
 
 use web::Client;
 use dns::Resolver;
-use ::Result;
+use errors::Result;
 
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

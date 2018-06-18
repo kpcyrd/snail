@@ -8,7 +8,7 @@ use failure::ResultExt;
 use std::collections::HashMap;
 use web::structs::RequestOptions;
 use web::structs::HttpRequest;
-use ::{Result, Error};
+use errors::{Result, Error};
 
 
 pub fn http_mksession<C: HttpClient + 'static, R: DnsResolver + 'static>(lua: &mut hlua::Lua, state: Arc<State<C, R>>) {

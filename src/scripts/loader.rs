@@ -2,7 +2,7 @@ use dns::{Resolver, DnsResolver};
 use scripts::Script;
 use web::{self, HttpClient};
 use wifi::NetworkStatus;
-use ::Result;
+use errors::Result;
 
 use std::fs;
 use std::env;

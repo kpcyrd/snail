@@ -1,5 +1,4 @@
-use ::Result;
-use failure::ResultExt;
+use errors::{Result, ResultExt};
 
 use std::iter::FromIterator;
 use std::collections::HashMap;

@@ -1,4 +1,4 @@
-use ::Result;
+use errors::Result;
 use std::time::Duration;
 use std::net::IpAddr;
 use std::fmt;

@@ -3,7 +3,6 @@ use hyper::rt::Future;
 use hyper::client::connect::{self, Connect};
 use hyper::client::connect::HttpConnector;
 use hyper::client::connect::Destination;
-use http::Uri;
 use futures::{Poll};
 use rustls::ClientConfig;
 use webpki_roots;
@@ -13,7 +12,7 @@ use std::io;
 use std::net::IpAddr;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use ::Result;
+use errors::Result;
 
 
 pub struct Connector<T> {
@@ -34,12 +33,8 @@ impl<T> Connector<T> {
             None => bail!("host wasn't pre-resolved"),
         };
 
-        let mut url = format!("{}://{}", dest.scheme(), ip);
-        if let Some(port) = dest.port() {
-            url.push_str(&format!(":{}", port));
-        }
-        let uri: Uri = url.parse()?;
-        dest.set_uri(uri);
+        dest.set_host(&ip.to_string())?;
+
         Ok(dest)
     }
 }

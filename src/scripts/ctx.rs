@@ -1,6 +1,5 @@
 use hlua;
-use ::{Result, Error};
-use failure::ResultExt;
+use errors::{Result, Error, ResultExt};
 
 use std::fs;
 use std::path::PathBuf;
@@ -75,9 +74,13 @@ fn ctx<'a, C: HttpClient + 'static, R: DnsResolver + 'static>(http: Arc<C>, reso
     let state = Arc::new(State::new(http, resolver));
 
     runtime::dns(&mut lua, state.clone());
+    runtime::html_select(&mut lua, state.clone());
+    runtime::html_select_list(&mut lua, state.clone());
     runtime::http_mksession(&mut lua, state.clone());
     runtime::http_request(&mut lua, state.clone());
     runtime::http_send(&mut lua, state.clone());
+    runtime::json_decode(&mut lua, state.clone());
+    runtime::json_encode(&mut lua, state.clone());
     runtime::print(&mut lua, state.clone());
 
     (lua, state)
