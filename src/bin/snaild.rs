@@ -12,8 +12,6 @@ use snail::Result;
 use snail::args::snaild::Args;
 use snail::decap;
 use snail::dhcp;
-use snail::scripts::Loader;
-use snail::dns::Resolver;
 use snail::ipc::{Server, Client, CtlRequest, CtlReply};
 use snail::wifi::NetworkStatus;
 
@@ -88,78 +86,11 @@ fn decap_thread_loop(status: Arc<Mutex<Option<NetworkStatus>>>, msg: NetworkStat
     debug!("rx: {:?}", msg);
     thread::sleep(Duration::from_secs(1));
 
-    // TODO: dns server could be empty
-    let resolver = Resolver::with_udp(&msg.dns)?;
-    match decap::detect_walled_garden(resolver) {
-        Ok(Some(fingerprint)) => {
-            let mut status = status.lock().unwrap();
-            if let Some(ref mut status) = status.deref_mut() {
-                status.set_uplink_status(Some(false));
-            }
-            info!("detected captive portal: {:?}", fingerprint);
-
-            let loader = Loader::from_status(&status)?;
-            if let Some(ref mut status) = status.deref_mut() {
-                if let Some(ssid) = status.ssid.clone() {
-                    let scripts = loader.load_all_scripts()?;
-                    info!("loaded {} scripts", scripts.len());
-
-                    let mut solved = false;
-                    for script in scripts {
-                        if script.detect_network(&ssid)? {
-                            info!("trying {:?}", script.descr());
-
-                            match script.decap() {
-                                Ok(_) => {
-                                    info!("script reported success, probing network");
-                                    status.set_uplink_status(Some(true));
-                                    let resolver = Resolver::with_udp(&msg.dns)?;
-                                    match decap::detect_walled_garden(resolver) {
-                                        Ok(Some(_)) => {
-                                            warn!("captive portal is still active");
-                                        },
-                                        Ok(None) => {
-                                            status.set_uplink_status(Some(true));
-                                            status.script_used = Some(script.descr().to_string());
-                                            info!("working internet detected");
-                                            solved = true;
-                                            break;
-                                        },
-                                        Err(err) => {
-                                            warn!("captive portal test failed: {}", err);
-                                        },
-                                    }
-                                },
-                                Err(err) => {
-                                    warn!("script reported error: {}", err);
-                                },
-                            };
-                        }
-                    }
-
-                    if !solved {
-                        status.set_uplink_status(Some(false));
-                        info!("no scripts left, giving up");
-                    }
-                } else {
-                    info!("decap engine is only enabled on wireless networks");
-                }
-            }
-        },
-        Ok(None) => {
-            let mut status = status.lock().unwrap();
-            if let Some(ref mut status) = status.deref_mut() {
-                status.set_uplink_status(Some(true));
-            }
-            info!("working internet detected");
-        },
-        Err(err) => {
-            warn!("captive portal test failed: {}", err);
-            let mut status = status.lock().unwrap();
-            if let Some(ref mut status) = status.deref_mut() {
-                status.set_uplink_status(Some(false));
-            }
-        },
+    let mut status = status.lock().unwrap();
+    if let Some(ref mut status) = status.deref_mut() {
+        decap::decap(status, &msg.dns)?;
+    } else {
+        warn!("not connected to a network");
     }
 
     Ok(())

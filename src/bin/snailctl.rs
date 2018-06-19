@@ -79,26 +79,15 @@ fn run() -> Result<()> {
             }
         },
         Some(SubCommand::Decap(_decap)) => {
-            // snail::scripts::loader::loader
-
             let mut client = Client::connect(&args.socket)?;
-            let status = match client.status()? {
+            let mut status = match client.status()? {
                 Some(status) => status,
                 None => bail!("not connected to a network"),
             };
 
-            let resolver = Resolver::with_udp(&status.dns)?;
-
-            let walled_garden = match decap::detect_walled_garden(resolver)? {
-                Some(walled_garden) => walled_garden,
-                None => {
-                    println!("[+] no walled garden detected");
-                    return Ok(());
-                },
-            };
-
-            println!("[!] walled garden connection detected!");
-            println!("{:?}", walled_garden);
+            let dns = status.dns.clone();
+            // TODO: there's no output here unless -v is provided
+            decap::decap(&mut status, &dns)?;
         },
         Some(SubCommand::Status(_decap)) => {
             let mut client = Client::connect(&args.socket)?;
