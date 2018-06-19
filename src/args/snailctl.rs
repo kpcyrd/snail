@@ -40,6 +40,10 @@ pub enum SubCommand {
                 name="http",
                 about="Run http request inside target network")]
     Http(Http),
+    #[structopt(author = "",
+                name="bash-completion",
+                about="Generate bash completion script for the snailctl command")]
+    BashCompletion,
 }
 
 #[derive(StructOpt, Debug)]

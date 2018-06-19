@@ -128,6 +128,10 @@ impl<C: HttpClient + 'static, R: DnsResolver + 'static> Script<C, R> {
         })
     }
 
+    pub fn descr(&self) -> &str {
+        &self.descr
+    }
+
     pub fn detect_network(&self, network: &str) -> Result<bool> {
         let (mut lua, state) = ctx(self.http.clone(), self.resolver.clone());
         lua.execute::<()>(&self.code)?;

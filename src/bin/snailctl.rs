@@ -3,13 +3,17 @@ extern crate structopt;
 extern crate dbus;
 extern crate env_logger;
 extern crate colored;
+extern crate reduce;
 #[macro_use] extern crate log;
 #[macro_use] extern crate failure;
 
 use structopt::StructOpt;
 use colored::Colorize;
+use reduce::Reduce;
+use failure::ResultExt;
 
 use snail::Result;
+use snail::args;
 use snail::args::snailctl::{Args, SubCommand};
 use snail::decap;
 use snail::dns::{Resolver, DnsResolver};
@@ -41,7 +45,8 @@ fn run() -> Result<()> {
             let loader = snail::scripts::Loader::default();
             let scripts = loader.load_all_scripts()?;
 
-            let networks = utils::scan_wifi(&scan.interface)?;
+            let networks = utils::scan_wifi(&scan.interface)
+                            .context("scan_wifi failed")?;
             for network in networks {
                 let encryption = match network.encryption.as_str() {
                     "on"  => "on ".red().to_string(),
@@ -105,7 +110,10 @@ fn run() -> Result<()> {
                         None       => "unknown".yellow(),
                     });
                     println!("router:  {:?}", status.router);
-                    println!("dns:     {:?}", status.dns);
+                    println!("dns:     [{}]", status.dns.iter()
+                                                .map(|x| x.to_string())
+                                                .reduce(|a, b| a + ", " + &b)
+                                                .unwrap_or_else(|| String::new()));
                     println!("uplink:  {}", match status.has_uplink {
                         Some(true)  => "yes".green(),
                         Some(false) => "no".red(),
@@ -136,6 +144,9 @@ fn run() -> Result<()> {
         },
         Some(SubCommand::Http(_http)) => {
             println!("unimplemented");
+        },
+        Some(SubCommand::BashCompletion) => {
+            args::gen_completions::<args::snailctl::Args>("snailctl");
         },
         None => {
             // use empty network status, we don't support function calls here

@@ -37,6 +37,7 @@ dhcp4r = "0.1.0"
 rand = "0.5.1"
 base64 = "0.9"
 serde_urlencoded = "0.5.2"
+reduce = "0.1.1"
 
 # this conflicts with hyper-rustls 0.13
 #trust-dns-resolver = { version = "0.9", features = ["dns-over-rustls"] }

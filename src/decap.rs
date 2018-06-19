@@ -17,10 +17,8 @@ pub struct WalledGardenFingerprint {
 }
 
 pub fn detect_walled_garden(resolver: Resolver) -> Result<Option<WalledGardenFingerprint>> {
-    // TODO: use dns from snailctl status
     let client = Client::new(resolver);
     let req = client.get(PROBE_WALLED_GARDEN_URL)?;
-    // let req = client.get("https://httpbin.org/redirect-to?url=/anything&status=302")?;
 
     if req.status == 204 {
         info!("got 204 reply");
@@ -28,16 +26,14 @@ pub fn detect_walled_garden(resolver: Resolver) -> Result<Option<WalledGardenFin
     } else {
         let redirect = match req.headers.get("location") {
             Some(redirect) => {
-                println!("got redirect! {:?}", redirect);
                 Some(redirect.to_string())
             },
             None => {
-                println!("no redirect detected?!");
+                warn!("no redirect detected?!");
                 None
             },
         };
 
-        // TODO: return captive portal report
         Ok(Some(WalledGardenFingerprint {
             redirect,
             // portal: None,
