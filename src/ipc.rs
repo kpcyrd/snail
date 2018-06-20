@@ -1,15 +1,19 @@
-// TODO: socket permissions are currently disabled
 use zmq;
 use serde_json;
+use nix;
+use nix::unistd::Gid;
+use users;
 
-use errors::Result;
-use std::fs::{self, Permissions};
-use std::os::unix::fs::PermissionsExt;
+use config::Config;
 use dhcp::NetworkUpdate;
+use errors::Result;
 use wifi::NetworkStatus;
 
+use std::fs::{self, Permissions};
+use std::os::unix::fs::PermissionsExt;
 
-pub const SOCKET: &str = "ipc:///tmp/snail.sock";
+
+pub const SOCKET: &str = "ipc:///run/snail.sock";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CtlRequest {
@@ -33,7 +37,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn bind(url: &str) -> Result<Server> {
+    pub fn bind(url: &str, config: &Config) -> Result<Server> {
         let ctx = zmq::Context::new();
         let socket = ctx.socket(zmq::REP)?;
 
@@ -42,10 +46,20 @@ impl Server {
         // fix permissions
         if url.starts_with("ipc://") {
             // TODO: write a proper solution
-            // let perms = Permissions::from_mode(0o770);
-            // TODO: FIXME: socket perissions are fully disabled
-            let perms = Permissions::from_mode(0o777);
-            fs::set_permissions(&url[6..], perms)?;
+            let path = &url[6..];
+
+            let perms = Permissions::from_mode(0o770);
+            fs::set_permissions(&path, perms)?;
+
+            if let Some(group) = &config.daemon.socket_group {
+                if let Some(gid) = users::get_group_by_name(&group) {
+                    let gid = Gid::from_raw(gid.gid());
+                    nix::unistd::chown(path, None, Some(gid))?;
+                    info!("socket group has been set to {:?} ({})", group, gid);
+                } else {
+                    bail!("group not found");
+                }
+            }
         }
 
         Ok(Server {

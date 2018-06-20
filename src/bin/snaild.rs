@@ -4,12 +4,13 @@ extern crate env_logger;
 // extern crate colored;
 #[macro_use] extern crate log;
 // #[macro_use] extern crate failure;
+extern crate tempfile;
 
 use structopt::StructOpt;
 // use colored::Colorize;
 
 use snail::args::snaild::Args;
-use snail::config;
+use snail::config::{self, Config};
 use snail::decap;
 use snail::dhcp;
 use snail::errors::{Result, ResultExt};
@@ -27,8 +28,8 @@ use std::ops::DerefMut;
 
 
 fn dhcp_thread(interface: &str, hook: &str) -> Result<()> {
-    let mut conf = env::temp_dir();
-    conf.push("snaild-dhcpcd.conf"); // TODO: this is not secure
+    let dir = tempfile::tempdir()?;
+    let conf = dir.path().join("snaild-dhcpcd.conf");
 
     let mut f = File::create(&conf)?;
     f.write(br#"
@@ -107,8 +108,8 @@ fn decap_thread(status: Arc<Mutex<Option<NetworkStatus>>>, rx: mpsc::Receiver<Ne
     Ok(())
 }
 
-fn zmq_thread(socket: &str, status: Arc<Mutex<Option<NetworkStatus>>>, tx: mpsc::Sender<NetworkStatus>) -> Result<()> {
-    let mut server = Server::bind(socket)?;
+fn zmq_thread(socket: &str, status: Arc<Mutex<Option<NetworkStatus>>>, tx: mpsc::Sender<NetworkStatus>, config: &Config) -> Result<()> {
+    let mut server = Server::bind(socket, config)?;
 
     loop {
         let msg = server.recv()?;
@@ -175,7 +176,7 @@ fn run_daemon(args: Args) -> Result<()> {
                     .context("failed to load config")?;
     debug!("config: {:?}", config);
 
-    let socket = args.socket.unwrap_or(config.daemon.socket);
+    let socket = args.socket.unwrap_or(config.daemon.socket.clone());
     let interface = args.interface;
     let status = Arc::new(Mutex::new(None));
     let (tx, rx) = mpsc::channel();
@@ -196,7 +197,7 @@ fn run_daemon(args: Args) -> Result<()> {
     let t3 = {
         let status = status.clone();
         thread::spawn(move || {
-            zmq_thread(&socket, status, tx).expect("zmq_thread");
+            zmq_thread(&socket, status, tx, &config).expect("zmq_thread");
         })
     };
 

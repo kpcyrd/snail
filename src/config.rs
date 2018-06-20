@@ -17,10 +17,20 @@ pub struct Config {
     pub scripts: ScriptConfig,
 }
 
-#[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DaemonConfig {
     #[serde(default="default_socket")]
-    pub socket: String
+    pub socket: String,
+    pub socket_group: Option<String>,
+}
+
+impl Default for DaemonConfig {
+    fn default() -> DaemonConfig {
+        DaemonConfig {
+            socket: default_socket(),
+            socket_group: None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

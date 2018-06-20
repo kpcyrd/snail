@@ -15,5 +15,3 @@ pub struct Args {
 
     pub interface: String,
 }
-
-

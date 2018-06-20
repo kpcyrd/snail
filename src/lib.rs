@@ -6,7 +6,7 @@ extern crate hlua_badtouch as hlua;
 extern crate trust_dns_resolver;
 extern crate kuchiki;
 extern crate regex;
-// extern crate nix;
+extern crate nix;
 extern crate zmq;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
@@ -14,6 +14,7 @@ extern crate rand;
 extern crate base64;
 extern crate serde_urlencoded;
 extern crate toml;
+extern crate users;
 
 extern crate hyper;
 extern crate http;
