@@ -8,10 +8,11 @@ extern crate env_logger;
 use structopt::StructOpt;
 // use colored::Colorize;
 
-use snail::Result;
 use snail::args::snaild::Args;
+use snail::config;
 use snail::decap;
 use snail::dhcp;
+use snail::errors::{Result, ResultExt};
 use snail::ipc::{Server, Client, CtlRequest, CtlReply};
 use snail::wifi::NetworkStatus;
 
@@ -170,7 +171,11 @@ fn run_daemon(args: Args) -> Result<()> {
         h.to_str().unwrap().to_string()
     };
 
-    let socket = args.socket;
+    let config = config::read_from(config::PATH)
+                    .context("failed to load config")?;
+    debug!("config: {:?}", config);
+
+    let socket = args.socket.unwrap_or(config.daemon.socket);
     let interface = args.interface;
     let status = Arc::new(Mutex::new(None));
     let (tx, rx) = mpsc::channel();
@@ -202,18 +207,20 @@ fn run_daemon(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn notify_daemon(socket: &str) -> Result<()> {
+fn notify_daemon() -> Result<()> {
     let event = dhcp::read_dhcp_env()?;
-
-    // println!("{:?}", event);
+    debug!("event: {:?}", event);
 
     // this can prevent dhcpcd from shutting down if the zmq thread already stopped
     if event.message == Some(dhcp::UpdateMessage::Stopped) {
         return Ok(());
     }
 
-    debug!("event: {:?}", event);
-    let mut client = Client::connect(socket)?;
+    let config = config::read_from(config::PATH)
+                    .context("failed to load config")?;
+    debug!("config: {:?}", config);
+
+    let mut client = Client::connect(&config.daemon.socket)?;
     client.send(&CtlRequest::DhcpEvent(event))?;
 
     /*
@@ -234,7 +241,7 @@ fn run() -> Result<()> {
             let env = env_logger::Env::default()
                 .filter_or("RUST_LOG", "info");
             env_logger::init_from_env(env);
-            notify_daemon("ipc:///tmp/snail.sock") // TODO: hardcoded path
+            notify_daemon()
         },
         // else, start daemon
         Err(_) => {

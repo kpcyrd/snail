@@ -13,6 +13,7 @@ extern crate serde_json;
 extern crate rand;
 extern crate base64;
 extern crate serde_urlencoded;
+extern crate toml;
 
 extern crate hyper;
 extern crate http;

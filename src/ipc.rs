@@ -9,6 +9,8 @@ use dhcp::NetworkUpdate;
 use wifi::NetworkStatus;
 
 
+pub const SOCKET: &str = "ipc:///tmp/snail.sock";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CtlRequest {
     Ping,

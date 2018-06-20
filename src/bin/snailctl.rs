@@ -10,14 +10,13 @@ extern crate reduce;
 use structopt::StructOpt;
 use colored::Colorize;
 use reduce::Reduce;
-use failure::ResultExt;
 
-use snail::Result;
 use snail::args;
 use snail::args::snailctl::{Args, SubCommand};
+use snail::config;
 use snail::decap;
 use snail::dns::{Resolver, DnsResolver};
-// use snail::dhcp;
+use snail::errors::{Result, ResultExt};
 use snail::utils;
 use snail::ipc::Client;
 
@@ -36,6 +35,11 @@ fn run() -> Result<()> {
         },
     };
     env_logger::init_from_env(env);
+
+    let config = config::read_from(config::PATH)
+                    .context("failed to load config")?;
+    debug!("config: {:?}", config);
+    let socket = args.socket.unwrap_or(config.daemon.socket);
 
     match args.subcommand {
         Some(SubCommand::Scan(scan)) => {
@@ -79,7 +83,7 @@ fn run() -> Result<()> {
             }
         },
         Some(SubCommand::Decap(_decap)) => {
-            let mut client = Client::connect(&args.socket)?;
+            let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
                 Some(status) => status,
                 None => bail!("not connected to a network"),
@@ -90,7 +94,7 @@ fn run() -> Result<()> {
             decap::decap(&mut status, &dns)?;
         },
         Some(SubCommand::Status(_decap)) => {
-            let mut client = Client::connect(&args.socket)?;
+            let mut client = Client::connect(&socket)?;
 
             match client.status()? {
                 Some(status) => {
@@ -119,7 +123,7 @@ fn run() -> Result<()> {
             }
         },
         Some(SubCommand::Dns(dns)) => {
-            let mut client = Client::connect(&args.socket)?;
+            let mut client = Client::connect(&socket)?;
 
             match client.status()? {
                 Some(status) => {
