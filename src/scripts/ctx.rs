@@ -30,6 +30,11 @@ impl<C: HttpClient, R: DnsResolver> State<C, R> {
         }
     }
 
+    pub fn last_error(&self) -> Option<String> {
+        let lock = self.error.lock().unwrap();
+        lock.as_ref().map(|err| err.to_string())
+    }
+
     pub fn set_error(&self, err: Error) -> Error {
         let mut mtx = self.error.lock().unwrap();
         let cp = format_err!("{:?}", err);
@@ -81,6 +86,7 @@ fn ctx<'a, C: HttpClient + 'static, R: DnsResolver + 'static>(http: Arc<C>, reso
     runtime::http_send(&mut lua, state.clone());
     runtime::json_decode(&mut lua, state.clone());
     runtime::json_encode(&mut lua, state.clone());
+    runtime::last_err(&mut lua, state.clone());
     runtime::print(&mut lua, state.clone());
 
     (lua, state)
@@ -169,7 +175,7 @@ impl<C: HttpClient + 'static, R: DnsResolver + 'static> Script<C, R> {
             None => bail!("function undefined: decap"),
         };
 
-        let _result: hlua::AnyLuaValue = match decap.call() {
+        let result: hlua::AnyLuaValue = match decap.call() {
             Ok(res) => res,
             Err(err) => {
                 bail!(format!("execution failed: {:?}", err));
@@ -180,6 +186,13 @@ impl<C: HttpClient + 'static, R: DnsResolver + 'static> Script<C, R> {
             return Err(err)
         }
 
-        Ok(())
+        use hlua::AnyLuaValue::*;
+        match result {
+            LuaNil => Ok(()),
+            LuaBoolean(true) => Ok(()),
+            LuaBoolean(false) => Err(format_err!("script returned false")),
+            LuaString(x) => Err(format_err!("error: {:?}", x)),
+            x => Err(format_err!("lua returned wrong type: {:?}", x)),
+        }
     }
 }

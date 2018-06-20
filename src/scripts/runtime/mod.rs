@@ -1,5 +1,7 @@
 mod dns;
 pub use self::dns::*;
+mod error;
+pub use self::error::*;
 mod html;
 pub use self::html::*;
 mod http;

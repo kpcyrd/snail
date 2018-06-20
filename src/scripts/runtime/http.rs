@@ -59,7 +59,12 @@ mod tests {
             session = http_mksession()
             req = http_request(session, "GET", "https://httpbin.org/anything", {})
             x = http_send(req)
+            if last_err() then return end
             print(x)
+
+            if x['status'] ~= 200 then
+                return 'wrong status code'
+            end
         end
         "#.to_string()).expect("failed to load script");
         script.decap().expect("decap failed");
@@ -89,7 +94,15 @@ mod tests {
                 }
             })
             x = http_send(req)
+            if last_err() then return end
             print(x)
+
+            o = json_decode(x['text'])
+            if last_err() then return end
+
+            if o['args']['foo'] ~= 'bar' or o['json']['hello'] ~= 'world' then
+                return "reply didn't contain all params"
+            end
         end
         "#.to_string()).expect("failed to load script");
         script.decap().expect("decap failed");
@@ -117,7 +130,15 @@ mod tests {
 
             req = http_request(session, "GET", "https://httpbin.org/cookies", {})
             x = http_send(req)
+            if last_err() then return end
             print(x)
+
+            o = json_decode(x['text'])
+            if last_err() then return end
+
+            if o['cookies']['fizz'] ~= 'buzz' or o['cookies']['foo'] ~= 'bar' then
+                return "reply didn't contain all cookies"
+            end
         end
         "#.to_string()).expect("failed to load script");
         script.decap().expect("decap failed");
