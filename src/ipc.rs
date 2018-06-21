@@ -20,6 +20,7 @@ pub enum CtlRequest {
     Ping,
     DhcpEvent(NetworkUpdate),
     StatusRequest,
+    SetStatus(Option<NetworkStatus>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -121,5 +122,18 @@ impl Client {
         } else {
             bail!("Wrong ctl reply");
         }
+    }
+
+    pub fn ping(&mut self) -> Result<()> {
+        if let CtlReply::Pong = self.send(&CtlRequest::Ping)? {
+            Ok(())
+        } else {
+            bail!("Wrong ctl reply");
+        }
+    }
+
+    pub fn set_status(&mut self, status: Option<NetworkStatus>) -> Result<()> {
+        self.send(&CtlRequest::SetStatus(status))?;
+        Ok(())
     }
 }

@@ -60,7 +60,6 @@ impl<R: DnsResolver> Client<R> {
     }
 
     pub fn get(&self, url: &str) -> Result<Response> {
-        info!("sending request to {:?}", url);
         let url = url.parse::<Uri>()?;
 
         self.pre_resolve(&url)?;

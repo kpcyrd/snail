@@ -39,6 +39,7 @@ pub mod dns;
 pub mod html;
 pub mod json;
 pub mod ipc;
+pub mod sandbox;
 pub mod scripts;
 pub mod structs;
 pub mod utils;

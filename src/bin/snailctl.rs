@@ -1,6 +1,7 @@
+#![warn(unused_extern_crates)]
 extern crate snail;
 extern crate structopt;
-extern crate dbus;
+// extern crate dbus;
 extern crate env_logger;
 extern crate colored;
 extern crate reduce;

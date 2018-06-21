@@ -1,20 +1,21 @@
+#![warn(unused_extern_crates)]
 extern crate snail;
 extern crate structopt;
 extern crate env_logger;
-// extern crate colored;
 #[macro_use] extern crate log;
-// #[macro_use] extern crate failure;
+#[macro_use] extern crate failure;
 extern crate tempfile;
+extern crate serde_json;
 
 use structopt::StructOpt;
-// use colored::Colorize;
 
-use snail::args::snaild::Args;
+use snail::args::snaild::{Args, SubCommand};
 use snail::config::{self, Config};
 use snail::decap;
 use snail::dhcp;
 use snail::errors::{Result, ResultExt};
 use snail::ipc::{Server, Client, CtlRequest, CtlReply};
+use snail::sandbox;
 use snail::wifi::NetworkStatus;
 
 use std::env;
@@ -22,9 +23,8 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::thread;
 use std::time::Duration;
-use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
-use std::ops::DerefMut;
+use std::process::{Command, Child, Stdio};
+use std::io::{self, BufReader};
 
 
 fn dhcp_thread(interface: &str, hook: &str) -> Result<()> {
@@ -84,12 +84,11 @@ noipv4ll
     Ok(())
 }
 
-fn decap_thread_loop(status: Arc<Mutex<Option<NetworkStatus>>>, msg: NetworkStatus) -> Result<()> {
+fn decap_thread_loop(status: &mut Option<NetworkStatus>, msg: NetworkStatus) -> Result<()> {
     debug!("rx: {:?}", msg);
     thread::sleep(Duration::from_secs(1));
 
-    let mut status = status.lock().unwrap();
-    if let Some(ref mut status) = status.deref_mut() {
+    if let Some(ref mut status) = status {
         decap::decap(status, &msg.dns)?;
     } else {
         warn!("not connected to a network");
@@ -98,18 +97,62 @@ fn decap_thread_loop(status: Arc<Mutex<Option<NetworkStatus>>>, msg: NetworkStat
     Ok(())
 }
 
-fn decap_thread(status: Arc<Mutex<Option<NetworkStatus>>>, rx: mpsc::Receiver<NetworkStatus>) -> Result<()> {
-    for msg in rx {
-        if let Err(error) = decap_thread_loop(status.clone(), msg) {
+fn decap_thread(socket: &str) -> Result<()> {
+    sandbox::decap_stage1()
+        .context("sandbox decap_stage1 failed")?;
+
+    let stdin = io::stdin();
+    let reader = BufReader::new(stdin);
+
+    let mut client = Client::connect(socket)?;
+    // ensure the connection is fully setup
+    client.ping()?;
+
+    sandbox::decap_stage2()
+        .context("sandbox decap_stage2 failed")?;
+
+    for msg in reader.lines() {
+        debug!("got event for decap: {:?}", msg);
+        let msg = msg?;
+        let msg = serde_json::from_str(&msg)?;
+
+        let mut status = client.status()?;
+        debug!("got current network status");
+
+        if let Err(error) = decap_thread_loop(&mut status, msg) {
             error!("error in decap thread: {:?}", error);
+        } else {
+            client.set_status(status)?;
+            debug!("sent network status update");
         }
     }
 
     Ok(())
 }
 
-fn zmq_thread(socket: &str, status: Arc<Mutex<Option<NetworkStatus>>>, tx: mpsc::Sender<NetworkStatus>, config: &Config) -> Result<()> {
+fn send_to_child(child: &mut Child, status: NetworkStatus) -> Result<()> {
+    if let Some(stdin) = &mut child.stdin {
+        debug!("sending to child: {:?}", status);
+        let mut msg = serde_json::to_string(&status)?;
+        msg += "\n";
+        stdin.write_all(msg.as_bytes())?;
+        stdin.flush()?;
+        debug!("notified child");
+        Ok(())
+    } else {
+        bail!("stdin of child is not piped");
+    }
+}
+
+fn zmq_thread(socket: &str, mut decap: Child, config: &Config) -> Result<()> {
+    sandbox::zmq_stage1()
+        .context("sandbox zmq_stage1 failed")?;
+
+    let mut status = None;
     let mut server = Server::bind(socket, config)?;
+
+    sandbox::zmq_stage2()
+        .context("sandbox zmq_stage2 failed")?;
 
     loop {
         let msg = server.recv()?;
@@ -126,17 +169,15 @@ fn zmq_thread(socket: &str, status: Arc<Mutex<Option<NetworkStatus>>>, tx: mpsc:
                     },
                     Some(UpdateMessage::Bound(net)) => {
                         info!("successful dhcp bound");
-                        let mut status = status.lock().unwrap();
                         let network = NetworkStatus::new(event.ssid, net);
-                        *status = Some(network.clone());
-                        tx.send(network)?;
+                        status = Some(network.clone());
+                        send_to_child(&mut decap, network)?;
                     },
                     Some(UpdateMessage::Reboot(net)) => {
                         info!("successful dhcp reboot");
-                        let mut status = status.lock().unwrap();
                         let network = NetworkStatus::new(event.ssid, net);
-                        *status = Some(network.clone());
-                        tx.send(network)?;
+                        status = Some(network.clone());
+                        send_to_child(&mut decap, network)?;
                     },
                     Some(UpdateMessage::Renew(_net)) => {
                         // ignore
@@ -144,8 +185,7 @@ fn zmq_thread(socket: &str, status: Arc<Mutex<Option<NetworkStatus>>>, tx: mpsc:
                     },
                     Some(UpdateMessage::NoCarrier) => {
                         info!("carrier lost");
-                        let mut status = status.lock().unwrap();
-                        *status = None;
+                        status = None;
                     },
                     Some(UpdateMessage::Stopped) => {
                         // ignore
@@ -157,55 +197,16 @@ fn zmq_thread(socket: &str, status: Arc<Mutex<Option<NetworkStatus>>>, tx: mpsc:
                 CtlReply::Ack
             },
             CtlRequest::StatusRequest => {
-                let mut status = status.lock().unwrap();
                 CtlReply::Status(status.clone())
+            },
+            CtlRequest::SetStatus(update) => {
+                status = update;
+                CtlReply::Ack
             },
         };
 
         server.reply(&reply)?;
     }
-}
-
-fn run_daemon(args: Args) -> Result<()> {
-    let hook = {
-        let h = env::current_exe().unwrap();
-        h.to_str().unwrap().to_string()
-    };
-
-    let config = config::read_from(config::PATH)
-                    .context("failed to load config")?;
-    debug!("config: {:?}", config);
-
-    let socket = args.socket.unwrap_or(config.daemon.socket.clone());
-    let interface = args.interface;
-    let status = Arc::new(Mutex::new(None));
-    let (tx, rx) = mpsc::channel();
-
-    let t1 = {
-        thread::spawn(move || {
-            dhcp_thread(&interface, &hook).expect("dhcp_thread");
-        })
-    };
-
-    let t2 = {
-        let status = status.clone();
-        thread::spawn(move || {
-            decap_thread(status, rx).expect("decap_thread");
-        })
-    };
-
-    let t3 = {
-        let status = status.clone();
-        thread::spawn(move || {
-            zmq_thread(&socket, status, tx, &config).expect("zmq_thread");
-        })
-    };
-
-    t1.join().expect("dhcp thread failed");
-    t2.join().expect("decap thread failed");
-    t3.join().expect("zmq thread failed");
-
-    Ok(())
 }
 
 fn notify_daemon() -> Result<()> {
@@ -256,7 +257,53 @@ fn run() -> Result<()> {
             }
             env_logger::init_from_env(env);
 
-            run_daemon(args)
+            let config = config::read_from(config::PATH)
+                            .context("failed to load config")?;
+            debug!("config: {:?}", config);
+
+            let socket = args.socket.unwrap_or(config.daemon.socket.clone());
+
+            match args.subcommand {
+                Some(SubCommand::Start(args)) => {
+                    let myself = {
+                        let h = env::current_exe().unwrap();
+                        h.to_str().unwrap().to_string()
+                    };
+
+                    // TODO: log level isn't forwarded to children
+
+                    let _dhcp_child = Command::new(&myself)
+                        .args(&["dhcp", &args.interface])
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
+                        .spawn()?;
+
+                    let decap_child = Command::new(&myself)
+                        .args(&["decap"])
+                        .stdin(Stdio::piped())
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
+                        .spawn()?;
+
+                    zmq_thread(&socket, decap_child, &config)
+                },
+                Some(SubCommand::Dhcp(args)) => {
+                    let hook = {
+                        let h = env::current_exe().unwrap();
+                        h.to_str().unwrap().to_string()
+                    };
+
+                    dhcp_thread(&args.interface, &hook)
+                },
+                Some(SubCommand::Decap) => {
+                    decap_thread(&socket)
+                },
+                None => {
+                    error!("dhcp event expected but not found");
+                    Ok(())
+                },
+            }
         }
     }
 }
