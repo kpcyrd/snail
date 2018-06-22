@@ -1,4 +1,9 @@
-# snail
+# snail [![Build Status][travis-img]][travis] [![Crates.io][crates-img]][crates]
+
+[travis-img]:   https://travis-ci.org/kpcyrd/snail.svg?branch=master
+[travis]:       https://travis-ci.org/kpcyrd/snail
+[crates-img]:   https://img.shields.io/crates/v/snail.svg
+[crates]:       https://crates.io/crates/snail
 
 Parasitic network manager. snail is the metasploit of network managers.
 

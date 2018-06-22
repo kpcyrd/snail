@@ -8,6 +8,9 @@ repository = "https://github.com/kpcyrd/snail"
 categories = ["command-line-utilities"]
 readme = "README.md"
 
+[badges]
+travis-ci = { repository = "kpcyrd/snail" }
+
 [[bin]]
 name = "snaild"
 path = "src/bin/snaild.rs"
