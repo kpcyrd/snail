@@ -15,6 +15,10 @@ pub struct Config {
     pub daemon: DaemonConfig,
     #[serde(default)]
     pub scripts: ScriptConfig,
+
+    /// this flag is going to be removed eventually
+    #[serde(default)]
+    pub danger_disable_seccomp_security: bool,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

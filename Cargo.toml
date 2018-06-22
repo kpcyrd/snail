@@ -58,10 +58,7 @@ webpki-roots = "0.14"
 
 nix = "0.11"
 zmq = "0.8.2"
-seccomp-sys = "0.1.2"
-
-[replace]
-"hyper:0.12.1" = { path = "../../github/hyper" }
+syscallz = "0.2"
 
 [dev-dependencies]
 pseudo = "0.1.0"

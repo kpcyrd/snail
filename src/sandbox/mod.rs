@@ -15,23 +15,27 @@ pub fn chroot(path: &str) -> Result<()> {
 }
 
 pub fn decap_stage1() -> Result<()> {
-    warn!("decap_stage1 is unimplemented");
+    seccomp::decap_stage1()?;
+    info!("decap_stage 1/2 enabled");
     Ok(())
 }
 
 pub fn decap_stage2() -> Result<()> {
     chroot("/var/empty")?;
-    warn!("decap_stage2 is unimplemented");
+    seccomp::decap_stage2()?;
+    info!("decap_stage 2/2 enabled");
     Ok(())
 }
 
 pub fn zmq_stage1() -> Result<()> {
-    warn!("zmq_stage1 is unimplemented");
+    seccomp::zmq_stage1()?;
+    info!("zmq_stage 1/2 enabled");
     Ok(())
 }
 
 pub fn zmq_stage2() -> Result<()> {
     chroot("/var/empty")?;
-    warn!("zmq_stage2 is unimplemented");
+    seccomp::zmq_stage2()?;
+    info!("zmq_stage 2/2 enabled");
     Ok(())
 }

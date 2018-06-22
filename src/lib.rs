@@ -15,6 +15,7 @@ extern crate base64;
 extern crate serde_urlencoded;
 extern crate toml;
 extern crate users;
+extern crate syscallz;
 
 extern crate hyper;
 extern crate http;

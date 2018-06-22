@@ -18,8 +18,9 @@ use snail::config;
 use snail::decap;
 use snail::dns::{Resolver, DnsResolver};
 use snail::errors::{Result, ResultExt};
-use snail::utils;
 use snail::ipc::Client;
+use snail::sandbox;
+use snail::utils;
 
 
 fn run() -> Result<()> {
@@ -84,6 +85,7 @@ fn run() -> Result<()> {
             }
         },
         Some(SubCommand::Decap(_decap)) => {
+            sandbox::decap_stage1()?;
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
                 Some(status) => status,
@@ -91,10 +93,12 @@ fn run() -> Result<()> {
             };
 
             let dns = status.dns.clone();
+            // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
+            sandbox::seccomp::decap_stage2()?;
             // TODO: there's no output here unless -v is provided
             decap::decap(&mut status, &dns)?;
         },
-        Some(SubCommand::Status(_decap)) => {
+        Some(SubCommand::Status(_status)) => {
             let mut client = Client::connect(&socket)?;
 
             match client.status()? {
