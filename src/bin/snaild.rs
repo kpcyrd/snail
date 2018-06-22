@@ -97,9 +97,11 @@ fn decap_thread_loop(status: &mut Option<NetworkStatus>, msg: NetworkStatus) -> 
     Ok(())
 }
 
-fn decap_thread(socket: &str) -> Result<()> {
-    sandbox::decap_stage1()
-        .context("sandbox decap_stage1 failed")?;
+fn decap_thread(socket: &str, config: &Config) -> Result<()> {
+    if !config.danger_disable_seccomp_security {
+        sandbox::decap_stage1()
+            .context("sandbox decap_stage1 failed")?;
+    }
 
     let stdin = io::stdin();
     let reader = BufReader::new(stdin);
@@ -108,8 +110,10 @@ fn decap_thread(socket: &str) -> Result<()> {
     // ensure the connection is fully setup
     client.ping()?;
 
-    sandbox::decap_stage2()
-        .context("sandbox decap_stage2 failed")?;
+    if !config.danger_disable_seccomp_security {
+        sandbox::decap_stage2()
+            .context("sandbox decap_stage2 failed")?;
+    }
 
     for msg in reader.lines() {
         debug!("got event for decap: {:?}", msg);
@@ -145,14 +149,18 @@ fn send_to_child(child: &mut Child, status: NetworkStatus) -> Result<()> {
 }
 
 fn zmq_thread(socket: &str, mut decap: Child, config: &Config) -> Result<()> {
-    sandbox::zmq_stage1()
-        .context("sandbox zmq_stage1 failed")?;
+    if !config.danger_disable_seccomp_security {
+        sandbox::zmq_stage1()
+            .context("sandbox zmq_stage1 failed")?;
+    }
 
     let mut status = None;
     let mut server = Server::bind(socket, config)?;
 
-    sandbox::zmq_stage2()
-        .context("sandbox zmq_stage2 failed")?;
+    if !config.danger_disable_seccomp_security {
+        sandbox::zmq_stage2()
+            .context("sandbox zmq_stage2 failed")?;
+    }
 
     loop {
         let msg = server.recv()?;
@@ -297,7 +305,7 @@ fn run() -> Result<()> {
                     dhcp_thread(&args.interface, &hook)
                 },
                 Some(SubCommand::Decap) => {
-                    decap_thread(&socket)
+                    decap_thread(&socket, &config)
                 },
                 None => {
                     error!("dhcp event expected but not found");

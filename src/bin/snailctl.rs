@@ -85,7 +85,9 @@ fn run() -> Result<()> {
             }
         },
         Some(SubCommand::Decap(_decap)) => {
-            sandbox::decap_stage1()?;
+            if !config.danger_disable_seccomp_security {
+                sandbox::decap_stage1()?;
+            }
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
                 Some(status) => status,
@@ -93,8 +95,10 @@ fn run() -> Result<()> {
             };
 
             let dns = status.dns.clone();
-            // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
-            sandbox::seccomp::decap_stage2()?;
+            if !config.danger_disable_seccomp_security {
+                // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
+                sandbox::seccomp::decap_stage2()?;
+            }
             // TODO: there's no output here unless -v is provided
             decap::decap(&mut status, &dns)?;
         },
