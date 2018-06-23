@@ -31,9 +31,7 @@ mod tests {
 
     #[test]
     fn verify_html_select() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "html"
 
         function detect() end
@@ -47,15 +45,13 @@ mod tests {
                 return 'wrong id'
             end
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 
     #[test]
     fn verify_html_select_list() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "html"
 
         function detect() end
@@ -72,7 +68,7 @@ mod tests {
                 return 'wrong id'
             end
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 }

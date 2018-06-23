@@ -16,6 +16,7 @@ use snail::dhcp;
 use snail::errors::{Result, ResultExt};
 use snail::ipc::{Server, Client, CtlRequest, CtlReply};
 use snail::sandbox;
+use snail::scripts::Loader;
 use snail::wifi::NetworkStatus;
 
 use std::env;
@@ -84,12 +85,12 @@ noipv4ll
     Ok(())
 }
 
-fn decap_thread_loop(status: &mut Option<NetworkStatus>, msg: NetworkStatus) -> Result<()> {
+fn decap_thread_loop(loader: &Loader, status: &mut Option<NetworkStatus>, msg: NetworkStatus) -> Result<()> {
     debug!("rx: {:?}", msg);
     thread::sleep(Duration::from_secs(1));
 
     if let Some(ref mut status) = status {
-        decap::decap(status, &msg.dns)?;
+        decap::decap(loader, status, &msg.dns)?;
     } else {
         warn!("not connected to a network");
     }
@@ -105,6 +106,9 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
 
     let stdin = io::stdin();
     let reader = BufReader::new(stdin);
+
+    let mut loader = Loader::new();
+    loader.load_all_scripts()?;
 
     let mut client = Client::connect(socket)?;
     // ensure the connection is fully setup
@@ -123,7 +127,7 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
         let mut status = client.status()?;
         debug!("got current network status");
 
-        if let Err(error) = decap_thread_loop(&mut status, msg) {
+        if let Err(error) = decap_thread_loop(&loader, &mut status, msg) {
             error!("error in decap thread: {:?}", error);
         } else {
             client.set_status(status)?;
