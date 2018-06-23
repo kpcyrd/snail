@@ -108,7 +108,7 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
     let reader = BufReader::new(stdin);
 
     let mut loader = Loader::new();
-    loader.load_all_scripts()?;
+    loader.load_all_scripts(config)?;
 
     let mut client = Client::connect(socket)?;
     // ensure the connection is fully setup

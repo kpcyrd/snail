@@ -42,14 +42,14 @@ fn run() -> Result<()> {
     let config = config::read_from(config::PATH)
                     .context("failed to load config")?;
     debug!("config: {:?}", config);
-    let socket = args.socket.unwrap_or(config.daemon.socket);
+    let socket = args.socket.unwrap_or(config.daemon.socket.clone());
 
     match args.subcommand {
         Some(SubCommand::Scan(scan)) => {
             // println!("scanning on {:?}", scan.interface);
 
             // there is no network status, so we just use a default environment
-            let scripts = Loader::init_all_scripts_default()?;
+            let scripts = Loader::init_all_scripts_default(&config)?;
 
             let networks = utils::scan_wifi(&scan.interface)
                             .context("scan_wifi failed")?;
@@ -90,7 +90,7 @@ fn run() -> Result<()> {
             }
 
             let mut loader = Loader::new();
-            loader.load_all_scripts()?;
+            loader.load_all_scripts(&config)?;
 
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
@@ -157,12 +157,8 @@ fn run() -> Result<()> {
         None => {
             // use empty network status, we don't support function calls here
             let mut loader = Loader::new();
-            loader.load_default_scripts()?;
-            let default_scripts = loader.len();
-
-            let mut loader = Loader::new();
-            loader.load_private_scripts()?;
-            let private_scripts = loader.len();
+            let default_scripts = loader.load_default_scripts()?;
+            let private_scripts = loader.load_private_scripts(&config)?;
 
             print!("snailctl - parasitic network manager
 
