@@ -1,0 +1,20 @@
+[Unit]
+Description=snaild, parasitic network manager (%I)
+Documentation=https://github.com/kpcyrd/snail
+
+[Service]
+ExecStart=/usr/bin/snaild -S ipc:///run/snail.sock start %I
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateTmp=true
+PrivateDevices=true
+MemoryDenyWriteExecute=true
+
+# TODO: use /run/snail/snail.sock instead
+ReadWritePaths=/run
+# TODO: used by dhcpcd
+ReadWritePaths=/var/lib/dhcpcd
+
+[Install]
+WantedBy=network-online.target
