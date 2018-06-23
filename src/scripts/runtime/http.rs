@@ -49,9 +49,7 @@ mod tests {
     #[test]
     #[ignore]
     fn verify_request() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "verify_request"
 
         function detect() end
@@ -66,16 +64,14 @@ mod tests {
                 return 'wrong status code'
             end
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 
     #[test]
     #[ignore]
     fn verify_post() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "verify_post"
 
         function detect() end
@@ -104,16 +100,14 @@ mod tests {
                 return "reply didn't contain all params"
             end
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 
     #[test]
     #[ignore]
     fn verify_cookies() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "verify_request"
 
         function detect() end
@@ -140,7 +134,7 @@ mod tests {
                 return "reply didn't contain all cookies"
             end
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 }

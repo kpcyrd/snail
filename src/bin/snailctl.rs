@@ -20,6 +20,7 @@ use snail::dns::{Resolver, DnsResolver};
 use snail::errors::{Result, ResultExt};
 use snail::ipc::Client;
 use snail::sandbox;
+use snail::scripts::Loader;
 use snail::utils;
 
 
@@ -41,15 +42,14 @@ fn run() -> Result<()> {
     let config = config::read_from(config::PATH)
                     .context("failed to load config")?;
     debug!("config: {:?}", config);
-    let socket = args.socket.unwrap_or(config.daemon.socket);
+    let socket = args.socket.unwrap_or(config.daemon.socket.clone());
 
     match args.subcommand {
         Some(SubCommand::Scan(scan)) => {
             // println!("scanning on {:?}", scan.interface);
 
             // there is no network status, so we just use a default environment
-            let loader = snail::scripts::Loader::default();
-            let scripts = loader.load_all_scripts()?;
+            let scripts = Loader::init_all_scripts_default(&config)?;
 
             let networks = utils::scan_wifi(&scan.interface)
                             .context("scan_wifi failed")?;
@@ -88,6 +88,10 @@ fn run() -> Result<()> {
             if !config.danger_disable_seccomp_security {
                 sandbox::decap_stage1()?;
             }
+
+            let mut loader = Loader::new();
+            loader.load_all_scripts(&config)?;
+
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
                 Some(status) => status,
@@ -100,7 +104,7 @@ fn run() -> Result<()> {
                 sandbox::seccomp::decap_stage2()?;
             }
             // TODO: there's no output here unless -v is provided
-            decap::decap(&mut status, &dns)?;
+            decap::decap(&loader, &mut status, &dns)?;
         },
         Some(SubCommand::Status(_status)) => {
             let mut client = Client::connect(&socket)?;
@@ -152,10 +156,10 @@ fn run() -> Result<()> {
         },
         None => {
             // use empty network status, we don't support function calls here
-            let loader = snail::scripts::Loader::default();
-
+            let mut loader = Loader::new();
             let default_scripts = loader.load_default_scripts()?;
-            let private_scripts = loader.load_private_scripts()?;
+            let private_scripts = loader.load_private_scripts(&config)?;
+
             print!("snailctl - parasitic network manager
 
 \x1b[32m    o    o     \x1b[33m__ __
@@ -168,7 +172,7 @@ fn run() -> Result<()> {
 \x1b[0m
 -=[ default scripts: {}
 -=[ private scripts: {}
-", default_scripts.len(), private_scripts.len());
+", default_scripts, private_scripts);
         },
     }
 

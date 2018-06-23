@@ -29,9 +29,7 @@ mod tests {
 
     #[test]
     fn verify_json_encode() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "json"
 
         function detect() end
@@ -47,15 +45,13 @@ mod tests {
                 }
             })
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 
     #[test]
     fn verify_json_encode_decode() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "json"
 
         function detect() end
@@ -72,37 +68,33 @@ mod tests {
             })
             json_decode(x)
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 
     #[test]
     fn verify_json_decode_valid() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "json"
 
         function detect() end
         function decap()
             json_decode("{\"almost_one\":0.9999,\"data\":{\"password\":\"fizz\",\"user\":\"bar\"},\"hello\":\"world\",\"list\":[1,3,3,7]}")
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 
     #[test]
     fn verify_json_decode_invalid() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "json"
 
         function detect() end
         function decap()
             json_decode("{\"almost_one\":0.9999,\"data\":{\"password\":\"fizz\",\"user\":\"bar\"}}}}}}}}}")
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         let r = script.decap();
         assert!(r.is_err());
     }

@@ -1,8 +1,6 @@
 use hlua;
-use errors::{Result, Error, ResultExt};
+use errors::{Result, Error};
 
-use std::fs;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
@@ -102,14 +100,6 @@ fn ensure_function_exists(lua: &mut hlua::Lua, name: &str) -> Result<()> {
 }
 
 impl<C: HttpClient + 'static, R: DnsResolver + 'static> Script<C, R> {
-    pub fn load_from_path(path: PathBuf, http: Arc<C>, resolver: Arc<R>) -> Result<Script<C, R>> {
-        info!("loading script from: {:?}", path);
-        let code = fs::read_to_string(&path)?;
-        let script = Script::load(code, http, resolver)
-                        .context(format!("failed to load {:?}", path))?;
-        Ok(script)
-    }
-
     pub fn load(code: String, http: Arc<C>, resolver: Arc<R>) -> Result<Script<C, R>> {
         let (mut lua, _) = ctx(http.clone(), resolver.clone());
         lua.execute::<()>(&code)?;

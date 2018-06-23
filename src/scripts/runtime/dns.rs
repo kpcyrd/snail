@@ -22,9 +22,7 @@ mod tests {
     #[test]
     #[ignore]
     fn verify_resolve() {
-        let loader = Loader::default();
-
-        let script = loader.load(r#"
+        let script = Loader::init_default(r#"
         descr = "verify_resolve"
 
         function detect() end
@@ -32,7 +30,7 @@ mod tests {
             x = dns("google.com")
             print(x)
         end
-        "#.to_string()).expect("failed to load script");
+        "#).expect("failed to load script");
         script.decap().expect("decap failed");
     }
 }

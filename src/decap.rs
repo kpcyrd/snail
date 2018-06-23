@@ -45,7 +45,7 @@ pub fn detect_walled_garden(resolver: Resolver) -> Result<Option<WalledGardenFin
     }
 }
 
-pub fn decap(status: &mut NetworkStatus, recursors: &[IpAddr]) -> Result<()> {
+pub fn decap(loader: &Loader, status: &mut NetworkStatus, recursors: &[IpAddr]) -> Result<()> {
     // TODO: dns server could be empty
     let resolver = Resolver::with_udp(recursors)?;
     match detect_walled_garden(resolver) {
@@ -53,9 +53,9 @@ pub fn decap(status: &mut NetworkStatus, recursors: &[IpAddr]) -> Result<()> {
             status.set_uplink_status(Some(false));
             info!("detected captive portal: {:?}", fingerprint);
 
-            let loader = Loader::from_status(&Some(status.clone()))?;
             if let Some(ssid) = status.ssid.clone() {
-                let scripts = loader.load_all_scripts()?;
+                let scripts = loader.init_from_status(&status)?;
+
                 info!("loaded {} scripts", scripts.len());
 
                 let mut solved = false;
