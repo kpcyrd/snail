@@ -7,7 +7,7 @@ use std::fs;
 use std::collections::HashMap;
 
 
-pub const PATH: &str = "/etc/snail.conf";
+pub const PATH: &str = "/etc/snail/snail.conf";
 
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Config {

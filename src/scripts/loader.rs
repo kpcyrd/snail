@@ -6,7 +6,6 @@ use web::{self, HttpClient};
 use wifi::NetworkStatus;
 
 use std::fs;
-use std::env;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -79,10 +78,7 @@ impl Loader {
     pub fn load_private_scripts(&mut self, config: &Config) -> Result<usize> {
         let mut counter = 0;
 
-        // TODO: consider removing this, this produces inconsistent results depending on the user
-        if let Some(home) = env::home_dir() {
-            counter += self.load_from_folder(home.join(".config/snaild/scripts/"))?;
-        }
+        counter += self.load_from_folder("/etc/snail/scripts/")?;
 
         for (path, _) in &config.scripts.paths {
             counter += self.load_from_folder(path)?;
@@ -97,10 +93,13 @@ impl Loader {
         if let Ok(paths) = fs::read_dir(path) {
             for path in paths {
                 let path = path?;
-                let code = fs::read_to_string(path.path())
-                    .context(format!("failed to open {:?}", path.path()))?;
-                self.scripts.push(code);
-                counter += 1;
+                use std::os::unix::ffi::OsStrExt;
+                if path.file_name().as_bytes().ends_with(b".lua") {
+                    let code = fs::read_to_string(path.path())
+                        .context(format!("failed to open {:?}", path.path()))?;
+                    self.scripts.push(code);
+                    counter += 1;
+                }
             }
         }
 
