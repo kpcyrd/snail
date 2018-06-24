@@ -38,6 +38,10 @@ Resolve a dns record using the dns recursor pushed by dhcp.
 
 Execute an http request using the dns recursor pushed by dhcp.
 
+## connect
+
+Create a tcp connection using the dns recursor pushed by dhcp.
+
 ## scan
 
 Scan for wifis and display if they've been recognized by any scripts. Needs root to trigger a scan.

@@ -41,6 +41,10 @@ pub enum SubCommand {
                 about="Run http request inside target network")]
     Http(Http),
     #[structopt(author = "",
+                name="connect",
+                about="Open tcp connection inside target network")]
+    Connect(Connect),
+    #[structopt(author = "",
                 name="bash-completion",
                 about="Generate bash completion script for the snailctl command")]
     BashCompletion,
@@ -84,4 +88,12 @@ pub struct Http {
     #[structopt(short="X", long="method", default_value="GET",
                 help="Set http request method")]
     pub method: String,
+}
+
+#[derive(StructOpt, Debug)]
+pub struct Connect {
+    #[structopt(help="Destination host")]
+    pub host: String,
+    #[structopt(help="Destination port")]
+    pub port: u16,
 }
