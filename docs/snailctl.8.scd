@@ -36,7 +36,7 @@ Resolve a dns record using the dns recursor pushed by dhcp.
 
 ## http
 
-unimplemented
+Execute an http request using the dns recursor pushed by dhcp.
 
 ## scan
 

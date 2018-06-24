@@ -79,5 +79,9 @@ pub struct Dns {
 
 #[derive(StructOpt, Debug)]
 pub struct Http {
-
+    #[structopt(help="Request url")]
+    pub url: String,
+    #[structopt(short="X", long="method", default_value="GET",
+                help="Set http request method")]
+    pub method: String,
 }

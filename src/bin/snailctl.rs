@@ -7,10 +7,15 @@ extern crate colored;
 extern crate reduce;
 #[macro_use] extern crate log;
 #[macro_use] extern crate failure;
+extern crate http;
+extern crate hyper;
 
 use structopt::StructOpt;
 use colored::Colorize;
 use reduce::Reduce;
+
+use http::{Request, Uri};
+use hyper::Body;
 
 use snail::args;
 use snail::args::snailctl::{Args, SubCommand};
@@ -22,6 +27,7 @@ use snail::ipc::Client;
 use snail::sandbox;
 use snail::scripts::Loader;
 use snail::utils;
+use snail::web::{self, HttpClient};
 
 
 fn run() -> Result<()> {
@@ -148,8 +154,33 @@ fn run() -> Result<()> {
                 None => bail!("no active network"),
             }
         },
-        Some(SubCommand::Http(_http)) => {
-            println!("unimplemented");
+        Some(SubCommand::Http(http)) => {
+            let mut client = Client::connect(&socket)?;
+
+            let status = match client.status()? {
+                Some(status) => status,
+                None => bail!("no active network"),
+            };
+
+            let resolver = Resolver::with_udp(&status.dns)?;
+            let client = web::Client::new(resolver);
+
+            let url = http.url.parse::<Uri>()?;
+
+            let mut request = Request::builder();
+            let request = request.uri(url.clone())
+                   .method(http.method.as_str())
+                   .body(Body::empty())?;
+
+            let res = client.request(&url, request)?;
+            debug!("{:?}", res);
+
+            info!("status: {}", res.status);
+            for (key, value) in &res.headers {
+                info!("{:?}: {:?}", key, value);
+            }
+
+            print!("{}", res.body);
         },
         Some(SubCommand::BashCompletion) => {
             args::gen_completions::<args::snailctl::Args>("snailctl");
