@@ -13,7 +13,10 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::poll)?;
     ctx.allow_syscall(Syscall::nanosleep)?;
     ctx.allow_syscall(Syscall::sched_getaffinity)?;
+    #[cfg(not(target_arch="arm"))]
     ctx.allow_syscall(Syscall::mmap)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::mmap2)?;
     ctx.allow_syscall(Syscall::mprotect)?;
     ctx.allow_syscall(Syscall::clone)?;
     ctx.allow_syscall(Syscall::set_robust_list)?;
@@ -30,9 +33,15 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::ioctl)?;
     ctx.allow_syscall(Syscall::epoll_wait)?;
     ctx.allow_syscall(Syscall::sendto)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::send)?;
     ctx.allow_syscall(Syscall::recvfrom)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::recv)?;
     ctx.allow_syscall(Syscall::close)?;
     ctx.allow_syscall(Syscall::fcntl)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::fcntl64)?;
     ctx.allow_syscall(Syscall::connect)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
     ctx.allow_syscall(Syscall::setsockopt)?;
@@ -41,7 +50,11 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::exit)?;
     ctx.allow_syscall(Syscall::lseek)?;
     ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
+    #[cfg(target_arch = "arm")]
+    ctx.allow_syscall(Syscall::fstat64)?; // needed for stage1
     ctx.allow_syscall(Syscall::getdents)?; // needed for stage1
+    #[cfg(target_arch = "arm")]
+    ctx.allow_syscall(Syscall::getdents64)?; // needed for stage1
     ctx.allow_syscall(Syscall::eventfd2)?; // needed for stage1
     ctx.allow_syscall(Syscall::rt_sigprocmask)?; // needed for stage1
     ctx.allow_syscall(Syscall::sched_getparam)?; // needed for stage1
@@ -68,7 +81,10 @@ pub fn decap_stage2() -> Result<()> {
     ctx.allow_syscall(Syscall::poll)?;
     ctx.allow_syscall(Syscall::nanosleep)?;
     ctx.allow_syscall(Syscall::sched_getaffinity)?;
+    #[cfg(not(target_arch="arm"))]
     ctx.allow_syscall(Syscall::mmap)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::mmap2)?;
     ctx.allow_syscall(Syscall::mprotect)?;
     ctx.allow_syscall(Syscall::clone)?;
     ctx.allow_syscall(Syscall::set_robust_list)?;
@@ -85,9 +101,15 @@ pub fn decap_stage2() -> Result<()> {
     ctx.allow_syscall(Syscall::ioctl)?;
     ctx.allow_syscall(Syscall::epoll_wait)?;
     ctx.allow_syscall(Syscall::sendto)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::send)?;
     ctx.allow_syscall(Syscall::recvfrom)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::recv)?;
     ctx.allow_syscall(Syscall::close)?;
     ctx.allow_syscall(Syscall::fcntl)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::fcntl64)?;
     ctx.allow_syscall(Syscall::connect)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
     ctx.allow_syscall(Syscall::setsockopt)?;
@@ -114,17 +136,29 @@ pub fn zmq_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::getpeername)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
     ctx.allow_syscall(Syscall::recvfrom)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::recv)?;
     ctx.allow_syscall(Syscall::sendto)?;
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::send)?;
     ctx.allow_syscall(Syscall::openat)?; // needed for stage1
     ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
+    #[cfg(target_arch = "arm")]
+    ctx.allow_syscall(Syscall::fstat64)?; // needed for stage1
     ctx.allow_syscall(Syscall::getdents)?; // needed for stage1
+    ctx.allow_syscall(Syscall::getdents64)?; // needed for stage1
     ctx.allow_syscall(Syscall::close)?; // needed for stage1
     ctx.allow_syscall(Syscall::sched_getaffinity)?; // needed for stage1
+    #[cfg(not(target_arch="arm"))]
     ctx.allow_syscall(Syscall::mmap)?; // needed for stage1
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::mmap2)?; // needed for stage1
     ctx.allow_syscall(Syscall::mprotect)?; // needed for stage1
     ctx.allow_syscall(Syscall::munmap)?; // needed for stage1
     ctx.allow_syscall(Syscall::eventfd2)?; // needed for stage1
     ctx.allow_syscall(Syscall::fcntl)?; // needed for stage1
+    #[cfg(target_arch="arm")]
+    ctx.allow_syscall(Syscall::fcntl64)?; // needed for stage1
     ctx.allow_syscall(Syscall::getrandom)?; // needed for stage1
     ctx.allow_syscall(Syscall::epoll_create1)?; // needed for stage1
     ctx.allow_syscall(Syscall::epoll_ctl)?; // needed for stage1
