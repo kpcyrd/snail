@@ -34,6 +34,7 @@ pub use errors::Result;
 
 pub mod args;
 pub mod config;
+pub mod connect;
 pub mod decap;
 pub mod dhcp;
 pub mod dns;

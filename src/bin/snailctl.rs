@@ -7,14 +7,20 @@ extern crate colored;
 extern crate reduce;
 #[macro_use] extern crate log;
 #[macro_use] extern crate failure;
+extern crate http;
+extern crate hyper;
 
 use structopt::StructOpt;
 use colored::Colorize;
 use reduce::Reduce;
 
+use http::{Request, Uri};
+use hyper::Body;
+
 use snail::args;
 use snail::args::snailctl::{Args, SubCommand};
 use snail::config;
+use snail::connect;
 use snail::decap;
 use snail::dns::{Resolver, DnsResolver};
 use snail::errors::{Result, ResultExt};
@@ -22,6 +28,7 @@ use snail::ipc::Client;
 use snail::sandbox;
 use snail::scripts::Loader;
 use snail::utils;
+use snail::web::{self, HttpClient};
 
 
 fn run() -> Result<()> {
@@ -138,18 +145,54 @@ fn run() -> Result<()> {
         Some(SubCommand::Dns(dns)) => {
             let mut client = Client::connect(&socket)?;
 
-            match client.status()? {
-                Some(status) => {
-                    let resolver = Resolver::with_udp(&status.dns)?;
-                    for ip in resolver.resolve(&dns.query)? {
-                        println!("{}", ip);
-                    }
-                },
+            let status = match client.status()? {
+                Some(status) => status,
                 None => bail!("no active network"),
+            };
+
+            let resolver = Resolver::with_udp(&status.dns)?;
+            for ip in resolver.resolve(&dns.query)? {
+                println!("{}", ip);
             }
         },
-        Some(SubCommand::Http(_http)) => {
-            println!("unimplemented");
+        Some(SubCommand::Http(http)) => {
+            let mut client = Client::connect(&socket)?;
+
+            let status = match client.status()? {
+                Some(status) => status,
+                None => bail!("no active network"),
+            };
+
+            let resolver = Resolver::with_udp(&status.dns)?;
+            let client = web::Client::new(resolver);
+
+            let url = http.url.parse::<Uri>()?;
+
+            let mut request = Request::builder();
+            let request = request.uri(url.clone())
+                   .method(http.method.as_str())
+                   .body(Body::empty())?;
+
+            let res = client.request(&url, request)?;
+            debug!("{:?}", res);
+
+            info!("status: {}", res.status);
+            for (key, value) in &res.headers {
+                info!("{:?}: {:?}", key, value);
+            }
+
+            print!("{}", res.body);
+        },
+        Some(SubCommand::Connect(connect)) => {
+            let mut client = Client::connect(&socket)?;
+
+            let status = match client.status()? {
+                Some(status) => status,
+                None => bail!("no active network"),
+            };
+
+            let resolver = Resolver::with_udp(&status.dns)?;
+            connect::connect(resolver, &connect.host, connect.port)?;
         },
         Some(SubCommand::BashCompletion) => {
             args::gen_completions::<args::snailctl::Args>("snailctl");
