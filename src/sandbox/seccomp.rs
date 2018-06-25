@@ -55,6 +55,8 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::exit)?;
     ctx.allow_syscall(Syscall::lseek)?;
     ctx.allow_syscall(Syscall::brk)?;
+    ctx.allow_syscall(Syscall::clock_gettime)?;
+    ctx.allow_syscall(Syscall::gettimeofday)?;
     ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
     #[cfg(target_arch = "arm")]
     ctx.allow_syscall(Syscall::fstat64)?; // needed for stage1
@@ -129,6 +131,8 @@ pub fn decap_stage2() -> Result<()> {
     ctx.allow_syscall(Syscall::exit)?;
     ctx.allow_syscall(Syscall::lseek)?;
     ctx.allow_syscall(Syscall::brk)?;
+    ctx.allow_syscall(Syscall::clock_gettime)?;
+    ctx.allow_syscall(Syscall::gettimeofday)?;
 
     ctx.load()?;
 
@@ -148,6 +152,8 @@ pub fn zmq_stage1() -> Result<()> {
     #[cfg(target_arch = "aarch64")]
     ctx.allow_syscall(Syscall::ppoll)?;
     ctx.allow_syscall(Syscall::brk)?;
+    ctx.allow_syscall(Syscall::clock_gettime)?;
+    ctx.allow_syscall(Syscall::gettimeofday)?;
     ctx.allow_syscall(Syscall::accept4)?;
     ctx.allow_syscall(Syscall::getpeername)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
@@ -227,6 +233,8 @@ pub fn zmq_stage2() -> Result<()> {
     #[cfg(target_arch = "aarch64")]
     ctx.allow_syscall(Syscall::ppoll)?;
     ctx.allow_syscall(Syscall::brk)?;
+    ctx.allow_syscall(Syscall::clock_gettime)?;
+    ctx.allow_syscall(Syscall::gettimeofday)?;
 
     ctx.load()?;
 
