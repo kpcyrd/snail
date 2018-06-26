@@ -82,9 +82,9 @@ pub fn read_network_config() -> Result<NetworkConfig> {
 
 pub fn read_dhcp_env() -> Result<NetworkUpdate> {
     let interface = env::var("interface")?;
-    let ssid = match env::var("ifssid")?.as_str() {
-        "" => None,
-        ssid => Some(ssid.to_string()),
+    let ssid = match env::var("ifssid") {
+        Ok(ssid) => Some(ssid.to_string()),
+        Err(_) => None,
     };
     let env = env::vars().collect();
 
