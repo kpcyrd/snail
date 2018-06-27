@@ -1,4 +1,5 @@
 use structopt::clap::AppSettings;
+use std::net::IpAddr;
 
 
 #[derive(StructOpt, Debug)]
@@ -59,7 +60,7 @@ pub struct Scan {
 pub struct Decap {
     #[structopt(long="dns",
                 help="Overwrite default dns servers")]
-    pub dns: Option<String>,
+    pub dns: Vec<IpAddr>,
     #[structopt(short="s", long="snaild",
                 help="Use snaild status")]
     pub snaild: bool,
@@ -72,7 +73,9 @@ pub struct Decap {
 
 #[derive(StructOpt, Debug)]
 pub struct Status {
-
+    #[structopt(long="json",
+                help="Report as json")]
+    pub json: bool,
 }
 
 #[derive(StructOpt, Debug)]

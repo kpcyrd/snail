@@ -20,7 +20,14 @@ pub struct WalledGardenFingerprint {
     // pub portal: Option<String>,
 }
 
-pub fn detect_walled_garden(resolver: Resolver) -> Result<Option<WalledGardenFingerprint>> {
+pub fn detect_walled_garden(resolver: Resolver, force_decap: bool) -> Result<Option<WalledGardenFingerprint>> {
+    if force_decap {
+        // TODO: log that this happend
+        return Ok(Some(WalledGardenFingerprint {
+            redirect: None,
+        }));
+    }
+
     let client = Client::new(resolver);
     let req = client.get(PROBE_WALLED_GARDEN_URL)?;
 
@@ -45,10 +52,10 @@ pub fn detect_walled_garden(resolver: Resolver) -> Result<Option<WalledGardenFin
     }
 }
 
-pub fn decap(loader: &Loader, status: &mut NetworkStatus, recursors: &[IpAddr]) -> Result<()> {
+pub fn decap(loader: &Loader, status: &mut NetworkStatus, recursors: &[IpAddr], force_decap: bool) -> Result<()> {
     // TODO: dns server could be empty
     let resolver = Resolver::with_udp(recursors)?;
-    match detect_walled_garden(resolver) {
+    match detect_walled_garden(resolver, force_decap) {
         Ok(Some(fingerprint)) => {
             status.set_uplink_status(Some(false));
             info!("detected captive portal: {:?}", fingerprint);
@@ -68,7 +75,7 @@ pub fn decap(loader: &Loader, status: &mut NetworkStatus, recursors: &[IpAddr]) 
                                 info!("script reported success, probing network");
                                 status.set_uplink_status(Some(true));
                                 let resolver = Resolver::with_udp(recursors)?;
-                                match detect_walled_garden(resolver) {
+                                match detect_walled_garden(resolver, false) {
                                     Ok(Some(_)) => {
                                         warn!("captive portal is still active");
                                     },
