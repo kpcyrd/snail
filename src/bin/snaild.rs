@@ -90,7 +90,8 @@ fn decap_thread_loop(loader: &Loader, status: &mut Option<NetworkStatus>, msg: N
     thread::sleep(Duration::from_secs(1));
 
     if let Some(ref mut status) = status {
-        decap::decap(loader, status, &msg.dns)?;
+        // TODO: there should be a way to force decap for some networks
+        decap::decap(loader, status, &msg.dns, false)?;
     } else {
         warn!("not connected to a network");
     }

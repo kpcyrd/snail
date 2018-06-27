@@ -91,7 +91,7 @@ fn run() -> Result<()> {
                          network.channel);
             }
         },
-        Some(SubCommand::Decap(_decap)) => {
+        Some(SubCommand::Decap(decap)) => {
             if !config.danger_disable_seccomp_security {
                 sandbox::decap_stage1()?;
             }
@@ -111,7 +111,7 @@ fn run() -> Result<()> {
                 sandbox::seccomp::decap_stage2()?;
             }
             // TODO: there's no output here unless -v is provided
-            decap::decap(&loader, &mut status, &dns)?;
+            decap::decap(&loader, &mut status, &dns, decap.skip_check)?;
         },
         Some(SubCommand::Status(_status)) => {
             let mut client = Client::connect(&socket)?;
