@@ -106,7 +106,12 @@ fn run() -> Result<()> {
                 None => bail!("not connected to a network"),
             };
 
-            let dns = status.dns.clone();
+            let dns = if decap.dns.is_empty() {
+                status.dns.clone()
+            } else {
+                decap.dns
+            };
+
             if !config.danger_disable_seccomp_security {
                 // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
                 sandbox::seccomp::decap_stage2()?;
