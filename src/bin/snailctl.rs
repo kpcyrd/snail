@@ -9,6 +9,7 @@ extern crate reduce;
 #[macro_use] extern crate failure;
 extern crate http;
 extern crate hyper;
+extern crate serde_json;
 
 use structopt::StructOpt;
 use colored::Colorize;
@@ -113,32 +114,37 @@ fn run() -> Result<()> {
             // TODO: there's no output here unless -v is provided
             decap::decap(&loader, &mut status, &dns, decap.skip_check)?;
         },
-        Some(SubCommand::Status(_status)) => {
+        Some(SubCommand::Status(args)) => {
             let mut client = Client::connect(&socket)?;
+            let status = client.status()?;
 
-            match client.status()? {
-                Some(status) => {
-                    println!("network: {}", match status.ssid {
-                        Some(ssid) => format!("{:?}", ssid).green(),
-                        None       => "unknown".yellow(),
-                    });
-                    println!("router:  {:?}", status.router);
-                    println!("dns:     [{}]", status.dns.iter()
-                                                .map(|x| x.to_string())
-                                                .reduce(|a, b| a + ", " + &b)
-                                                .unwrap_or_else(|| String::new()));
-                    println!("uplink:  {}", match status.has_uplink {
-                        Some(true)  => "yes".green(),
-                        Some(false) => "no".red(),
-                        None        => "unknown".yellow(),
-                    });
-                    println!("script:  {}", match status.script_used {
-                        Some(script) => format!("{:?}", script),
-                        None         => "none".to_string(),
-                    });
-                },
-                None => {
-                    println!("network: {}", "none".red());
+            if args.json {
+                println!("{}", serde_json::to_string(&status)?);
+            } else {
+                match status {
+                    Some(status) => {
+                        println!("network: {}", match status.ssid {
+                            Some(ssid) => format!("{:?}", ssid).green(),
+                            None       => "unknown".yellow(),
+                        });
+                        println!("router:  {:?}", status.router);
+                        println!("dns:     [{}]", status.dns.iter()
+                                                    .map(|x| x.to_string())
+                                                    .reduce(|a, b| a + ", " + &b)
+                                                    .unwrap_or_else(|| String::new()));
+                        println!("uplink:  {}", match status.has_uplink {
+                            Some(true)  => "yes".green(),
+                            Some(false) => "no".red(),
+                            None        => "unknown".yellow(),
+                        });
+                        println!("script:  {}", match status.script_used {
+                            Some(script) => format!("{:?}", script),
+                            None         => "none".to_string(),
+                        });
+                    },
+                    None => {
+                        println!("network: {}", "none".red());
+                    }
                 }
             }
         },

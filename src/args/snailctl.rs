@@ -72,7 +72,9 @@ pub struct Decap {
 
 #[derive(StructOpt, Debug)]
 pub struct Status {
-
+    #[structopt(long="json",
+                help="Report as json")]
+    pub json: bool,
 }
 
 #[derive(StructOpt, Debug)]
