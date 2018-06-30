@@ -61,7 +61,7 @@ webpki-roots = "0.14"
 
 nix = "0.11"
 zmq = "0.8.2"
-syscallz = "0.3"
+syscallz = "0.4"
 
 [dev-dependencies]
 pseudo = "0.1.0"

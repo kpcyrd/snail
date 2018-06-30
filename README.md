@@ -5,13 +5,19 @@
 [crates-img]:   https://img.shields.io/crates/v/snail.svg
 [crates]:       https://crates.io/crates/snail
 
-Parasitic network manager. snail is the metasploit of network managers.
+**Disclaimer:** The project is in a very early state, you're very likely to
+experience bugs. I'm using it as my daily driver, but you should expect a very
+bare bone experience if you're considering doing the same.
+
+Parasitic network manager. snail is trying to fill the gap of a metasploit-like
+network manager. Its core feature is a scripting engine that can be used to
+match known networks and also interact with captive portals if one is
+discovered. Have a look at the [scripts/](scripts/) folder for examples. The
+basic idea is that you're trying to get connectivity, but you don't really care
+where it's actually coming from. Please remain seated and keep your arms and
+legs inside the firewall at all times.
 
 ![logo](docs/logo.png)
-
-The project is in a very early state, you're very likely to experience bugs.
-I'm using it as my daily driver, but you should expect a very bare bone
-experience if you're considering doing the same.
 
 ## Installation
 
