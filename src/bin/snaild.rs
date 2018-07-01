@@ -99,11 +99,13 @@ fn decap_thread_loop(loader: &Loader, status: &mut Option<NetworkStatus>, msg: N
     Ok(())
 }
 
-fn decap_thread(_socket: &str, config: &Config) -> Result<()> {
+fn decap_thread(socket: &str, config: &Config) -> Result<()> {
     if !config.danger_disable_seccomp_security {
         sandbox::decap_stage1()
             .context("sandbox decap_stage1 failed")?;
     }
+
+    let mut socket = socket.to_string();
 
     let stdin = io::stdin();
     let reader = BufReader::new(stdin);
@@ -114,17 +116,17 @@ fn decap_thread(_socket: &str, config: &Config) -> Result<()> {
     if !config.danger_disable_seccomp_security {
         sandbox::decap_stage2()
             .context("sandbox decap_stage2 failed")?;
+        // after the chroot, update socket path
+        socket = sandbox::chroot_socket_path(&socket, sandbox::CHROOT)?;
     }
 
-    // let mut client = Client::connect(socket)?;
-    // TODO: only works with chroot
-    let mut client = Client::connect("ipc:///snail.sock")?;
+    let mut client = Client::connect(&socket)?;
     // ensure the connection is fully setup
     client.ping()?;
 
     if !config.danger_disable_seccomp_security {
         sandbox::decap_stage3()
-            .context("sandbox decap_stage2 failed")?;
+            .context("sandbox decap_stage3 failed")?;
     }
 
     for msg in reader.lines() {
@@ -160,13 +162,14 @@ fn send_to_child(child: &mut Child, status: NetworkStatus) -> Result<()> {
     }
 }
 
-fn zmq_thread(_socket: &str, mut decap: Child, config: &mut Config) -> Result<()> {
+fn zmq_thread(socket: &str, mut decap: Child, config: &mut Config) -> Result<()> {
     if !config.danger_disable_seccomp_security {
         sandbox::zmq_stage1()
             .context("sandbox zmq_stage1 failed")?;
     }
 
     let mut status = None;
+    let mut socket = socket.to_string();
 
     // resolve gid before running chroot
     config.daemon.resolve_gid()?;
@@ -174,11 +177,11 @@ fn zmq_thread(_socket: &str, mut decap: Child, config: &mut Config) -> Result<()
     if !config.danger_disable_seccomp_security {
         sandbox::zmq_stage2()
             .context("sandbox zmq_stage2 failed")?;
+        // after the chroot, update socket path
+        socket = sandbox::chroot_socket_path(&socket, sandbox::CHROOT)?;
     }
 
-    // let mut server = Server::bind(socket, config)?;
-    // TODO: this only works when chrooted:
-    let mut server = Server::bind("ipc:///snail.sock", config)?;
+    let mut server = Server::bind(&socket, config)?;
 
     if !config.danger_disable_seccomp_security {
         sandbox::zmq_stage3()
