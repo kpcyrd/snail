@@ -21,9 +21,14 @@ pub fn decap_stage1() -> Result<()> {
 }
 
 pub fn decap_stage2() -> Result<()> {
-    chroot("/var/empty")?;
-    seccomp::decap_stage2()?;
-    info!("decap_stage 2/2 enabled");
+    chroot("/run/snail")?;
+    info!("decap_stage 2/3 enabled");
+    Ok(())
+}
+
+pub fn decap_stage3() -> Result<()> {
+    seccomp::decap_stage3()?;
+    info!("decap_stage 3/3 enabled");
     Ok(())
 }
 
@@ -34,8 +39,13 @@ pub fn zmq_stage1() -> Result<()> {
 }
 
 pub fn zmq_stage2() -> Result<()> {
-    chroot("/var/empty")?;
-    seccomp::zmq_stage2()?;
-    info!("zmq_stage 2/2 enabled");
+    chroot("/run/snail")?;
+    info!("zmq_stage 2/3 enabled");
+    Ok(())
+}
+
+pub fn zmq_stage3() -> Result<()> {
+    seccomp::zmq_stage3()?;
+    info!("zmq_stage 3/3 enabled");
     Ok(())
 }

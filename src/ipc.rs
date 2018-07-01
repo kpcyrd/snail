@@ -2,7 +2,6 @@ use zmq;
 use serde_json;
 use nix;
 use nix::unistd::Gid;
-use users;
 
 use config::Config;
 use dhcp::NetworkUpdate;
@@ -13,7 +12,7 @@ use std::fs::{self, Permissions};
 use std::os::unix::fs::PermissionsExt;
 
 
-pub const SOCKET: &str = "ipc:///run/snail.sock";
+pub const SOCKET: &str = "ipc:///run/snail/snail.sock";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CtlRequest {
@@ -52,14 +51,10 @@ impl Server {
             let perms = Permissions::from_mode(0o770);
             fs::set_permissions(&path, perms)?;
 
-            if let Some(group) = &config.daemon.socket_group {
-                if let Some(gid) = users::get_group_by_name(&group) {
-                    let gid = Gid::from_raw(gid.gid());
-                    nix::unistd::chown(path, None, Some(gid))?;
-                    info!("socket group has been set to {:?} ({})", group, gid);
-                } else {
-                    bail!("group not found");
-                }
+            if let Some((group, gid)) = &config.daemon.socket_gid {
+                let gid = Gid::from_raw(*gid);
+                nix::unistd::chown(path, None, Some(gid))?;
+                info!("socket group has been set to {:?} ({})", group, gid);
             }
         }
 

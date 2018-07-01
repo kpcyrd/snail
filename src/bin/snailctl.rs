@@ -100,6 +100,13 @@ fn run() -> Result<()> {
             let mut loader = Loader::new();
             loader.load_all_scripts(&config)?;
 
+            /*
+            // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
+            if !config.danger_disable_seccomp_security {
+                sandbox::decap_stage2()?;
+            }
+            */
+
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
                 Some(status) => status,
@@ -113,9 +120,9 @@ fn run() -> Result<()> {
             };
 
             if !config.danger_disable_seccomp_security {
-                // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
-                sandbox::seccomp::decap_stage2()?;
+                sandbox::decap_stage3()?;
             }
+
             // TODO: there's no output here unless -v is provided
             decap::decap(&loader, &mut status, &dns, decap.skip_check)?;
         },
