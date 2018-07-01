@@ -105,19 +105,28 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
             .context("sandbox decap_stage1 failed")?;
     }
 
+    let mut socket = socket.to_string();
+
     let stdin = io::stdin();
     let reader = BufReader::new(stdin);
 
     let mut loader = Loader::new();
     loader.load_all_scripts(config)?;
 
-    let mut client = Client::connect(socket)?;
+    if !config.danger_disable_seccomp_security {
+        sandbox::decap_stage2()
+            .context("sandbox decap_stage2 failed")?;
+        // after the chroot, update socket path
+        socket = sandbox::chroot_socket_path(&socket, sandbox::CHROOT)?;
+    }
+
+    let mut client = Client::connect(&socket)?;
     // ensure the connection is fully setup
     client.ping()?;
 
     if !config.danger_disable_seccomp_security {
-        sandbox::decap_stage2()
-            .context("sandbox decap_stage2 failed")?;
+        sandbox::decap_stage3()
+            .context("sandbox decap_stage3 failed")?;
     }
 
     for msg in reader.lines() {
@@ -153,18 +162,30 @@ fn send_to_child(child: &mut Child, status: NetworkStatus) -> Result<()> {
     }
 }
 
-fn zmq_thread(socket: &str, mut decap: Child, config: &Config) -> Result<()> {
+fn zmq_thread(socket: &str, mut decap: Child, config: &mut Config) -> Result<()> {
     if !config.danger_disable_seccomp_security {
         sandbox::zmq_stage1()
             .context("sandbox zmq_stage1 failed")?;
     }
 
     let mut status = None;
-    let mut server = Server::bind(socket, config)?;
+    let mut socket = socket.to_string();
+
+    // resolve gid before running chroot
+    config.daemon.resolve_gid()?;
 
     if !config.danger_disable_seccomp_security {
         sandbox::zmq_stage2()
             .context("sandbox zmq_stage2 failed")?;
+        // after the chroot, update socket path
+        socket = sandbox::chroot_socket_path(&socket, sandbox::CHROOT)?;
+    }
+
+    let mut server = Server::bind(&socket, config)?;
+
+    if !config.danger_disable_seccomp_security {
+        sandbox::zmq_stage3()
+            .context("sandbox zmq_stage3 failed")?;
     }
 
     loop {
@@ -270,8 +291,8 @@ fn run() -> Result<()> {
             }
             env_logger::init_from_env(env);
 
-            let config = config::read_from(config::PATH)
-                            .context("failed to load config")?;
+            let mut config = config::read_from(config::PATH)
+                                .context("failed to load config")?;
             debug!("config: {:?}", config);
 
             let socket = args.socket.unwrap_or(config.daemon.socket.clone());
@@ -299,7 +320,7 @@ fn run() -> Result<()> {
                         .stderr(Stdio::inherit())
                         .spawn()?;
 
-                    zmq_thread(&socket, decap_child, &config)
+                    zmq_thread(&socket, decap_child, &mut config)
                 },
                 Some(SubCommand::Dhcp(args)) => {
                     let hook = {

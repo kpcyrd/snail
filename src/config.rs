@@ -1,4 +1,5 @@
 use toml;
+use users;
 
 use errors::Result;
 use ipc;
@@ -26,6 +27,7 @@ pub struct DaemonConfig {
     #[serde(default="default_socket")]
     pub socket: String,
     pub socket_group: Option<String>,
+    pub socket_gid: Option<(String, u32)>,
 }
 
 impl Default for DaemonConfig {
@@ -33,7 +35,22 @@ impl Default for DaemonConfig {
         DaemonConfig {
             socket: default_socket(),
             socket_group: None,
+            socket_gid: None,
         }
+    }
+}
+
+impl DaemonConfig {
+    pub fn resolve_gid(&mut self) -> Result<()> {
+        if let Some(group) = &self.socket_group {
+            if let Some(gid) = users::get_group_by_name(&group) {
+                self.socket_gid = Some((group.clone(), gid.gid()));
+            } else {
+                bail!("group not found");
+            }
+        }
+
+        Ok(())
     }
 }
 

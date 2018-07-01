@@ -57,6 +57,7 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::brk)?;
     ctx.allow_syscall(Syscall::clock_gettime)?;
     ctx.allow_syscall(Syscall::gettimeofday)?;
+    ctx.allow_syscall(Syscall::stat)?; // needed for stage1
     ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
     #[cfg(target_arch = "arm")]
     ctx.allow_syscall(Syscall::fstat64)?; // needed for stage1
@@ -75,11 +76,11 @@ pub fn decap_stage1() -> Result<()> {
 
     ctx.load()?;
 
-    info!("decap_stage 1/2 is active");
+    info!("decap_stage 1/3 is active");
     Ok(())
 }
 
-pub fn decap_stage2() -> Result<()> {
+pub fn decap_stage3() -> Result<()> {
     let mut ctx = Context::init()?;
 
     ctx.allow_syscall(Syscall::futex)?;
@@ -136,7 +137,7 @@ pub fn decap_stage2() -> Result<()> {
 
     ctx.load()?;
 
-    info!("decap_stage 2/2 is active");
+    info!("decap_stage 3/3 is active");
     Ok(())
 }
 
@@ -154,6 +155,9 @@ pub fn zmq_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::brk)?;
     ctx.allow_syscall(Syscall::clock_gettime)?;
     ctx.allow_syscall(Syscall::gettimeofday)?;
+    ctx.allow_syscall(Syscall::restart_syscall)?;
+    ctx.allow_syscall(Syscall::sigaltstack)?;
+    ctx.allow_syscall(Syscall::exit)?;
     ctx.allow_syscall(Syscall::accept4)?;
     ctx.allow_syscall(Syscall::getpeername)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
@@ -164,6 +168,7 @@ pub fn zmq_stage1() -> Result<()> {
     #[cfg(target_arch="arm")]
     ctx.allow_syscall(Syscall::send)?;
     ctx.allow_syscall(Syscall::openat)?; // needed for stage1
+    ctx.allow_syscall(Syscall::stat)?; // needed for stage1
     ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
     #[cfg(target_arch = "arm")]
     ctx.allow_syscall(Syscall::fstat64)?; // needed for stage1
@@ -176,6 +181,7 @@ pub fn zmq_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::mmap)?; // needed for stage1
     #[cfg(target_arch="arm")]
     ctx.allow_syscall(Syscall::mmap2)?; // needed for stage1
+    ctx.allow_syscall(Syscall::madvise)?; // needed for stage1
     ctx.allow_syscall(Syscall::mprotect)?; // needed for stage1
     ctx.allow_syscall(Syscall::munmap)?; // needed for stage1
     ctx.allow_syscall(Syscall::eventfd2)?; // needed for stage1
@@ -217,11 +223,11 @@ pub fn zmq_stage1() -> Result<()> {
 
     ctx.load()?;
 
-    info!("zmq_stage 1/2 is active");
+    info!("zmq_stage 1/3 is active");
     Ok(())
 }
 
-pub fn zmq_stage2() -> Result<()> {
+pub fn zmq_stage3() -> Result<()> {
     let mut ctx = Context::init()?;
 
     ctx.allow_syscall(Syscall::futex)?;
@@ -235,9 +241,10 @@ pub fn zmq_stage2() -> Result<()> {
     ctx.allow_syscall(Syscall::brk)?;
     ctx.allow_syscall(Syscall::clock_gettime)?;
     ctx.allow_syscall(Syscall::gettimeofday)?;
+    ctx.allow_syscall(Syscall::restart_syscall)?;
 
     ctx.load()?;
 
-    info!("zmq_stage 2/2 is active");
+    info!("zmq_stage 3/3 is active");
     Ok(())
 }
