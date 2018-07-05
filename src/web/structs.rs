@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use errors::Result;
 use hlua::AnyLuaValue;
@@ -125,23 +125,31 @@ impl HttpRequest {
         req.method(self.method.as_str());
         req.uri(url.clone());
 
+        let mut observed_headers = HashSet::new();
+
         // set cookies
         {
             use hyper::header::COOKIE;
             let mut cookies = String::new();
+
             for (key, value) in self.cookies.iter() {
                 if !cookies.is_empty() {
                     cookies += "; ";
                 }
                 cookies.push_str(&format!("{}={}", key, value));
             }
-            req.header(COOKIE, cookies.as_str());
+
+            if !cookies.is_empty() {
+                req.header(COOKIE, cookies.as_str());
+                observed_headers.insert(COOKIE.as_str().to_lowercase());
+            }
         }
 
         // add headers
         if let Some(ref agent) = self.user_agent {
             use hyper::header::USER_AGENT;
             req.header(USER_AGENT, agent.as_str());
+            observed_headers.insert(USER_AGENT.as_str().to_lowercase());
         }
 
         if let Some(ref auth) = self.basic_auth {
@@ -151,25 +159,36 @@ impl HttpRequest {
             let auth = base64::encode(&format!("{}:{}", user, password));
             let auth = format!("Basic {}", auth);
             req.header(AUTHORIZATION, auth.as_str());
+            observed_headers.insert(AUTHORIZATION.as_str().to_lowercase());
         }
 
         if let Some(ref headers) = self.headers {
             for (k, v) in headers {
                 req.header(k.as_str(), v.as_str());
+                observed_headers.insert(k.to_lowercase());
             }
         }
 
         // finalize request
-        let req = req.body(match self.body {
+        let body = match self.body {
             Some(ReqBody::Raw(ref x))  => { Body::from(x.clone()) },
             Some(ReqBody::Form(ref x)) => {
+                // if Content-Type is not set, set header
+                if !observed_headers.contains("content-type") {
+                    req.header("Content-Type", "application/x-www-form-urlencoded");
+                }
                 Body::from(serde_urlencoded::to_string(x)?)
             },
             Some(ReqBody::Json(ref x)) => {
+                // if Content-Type is not set, set header
+                if !observed_headers.contains("content-type") {
+                    req.header("Content-Type", "application/json");
+                }
                 Body::from(serde_json::to_string(x)?)
             },
             None => Body::empty(),
-        })?;
+        };
+        let req = req.body(body)?;
 
         // send request
         let res = state.http.request(&url, req)?;
