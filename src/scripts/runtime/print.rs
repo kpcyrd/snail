@@ -35,6 +35,7 @@ fn format_lua(out: &mut String, x: &AnyLuaValue) {
         AnyLuaValue::LuaOther => out.push_str("LuaOther"),
     }
 }
+
 pub fn print<C: HttpClient, R: DnsResolver>(lua: &mut hlua::Lua, _: Arc<State<C, R>>) {
     lua.set("print", hlua::function1(move |val: AnyLuaValue| {
         // println!("{:?}", val);
