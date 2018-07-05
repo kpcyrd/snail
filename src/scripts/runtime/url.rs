@@ -2,7 +2,8 @@ use errors::{Result, Error};
 use scripts::ctx::State;
 use dns::DnsResolver;
 use web::HttpClient;
-use hlua;
+use hlua::{self, AnyLuaValue};
+use structs::LuaMap;
 use url::Url;
 use std::sync::Arc;
 
@@ -14,6 +15,46 @@ pub fn url_join<C: HttpClient + 'static, R: DnsResolver + 'static>(lua: &mut hlu
             .map_err(|err| state.set_error(Error::from(err)))?;
 
         Ok(url.into_string())
+    }))
+}
+
+pub fn url_parse<C: HttpClient + 'static, R: DnsResolver + 'static>(lua: &mut hlua::Lua, state: Arc<State<C, R>>) {
+    lua.set("url_parse", hlua::function1(move |url: String| -> Result<AnyLuaValue> {
+        let url = Url::parse(&url)
+            .map_err(|err| state.set_error(Error::from(err)))?;
+
+        let mut map = LuaMap::new();
+
+        map.insert_str("scheme", url.scheme());
+
+        if let Some(host) = url.host_str() {
+            map.insert_str("host", host);
+        }
+
+        if let Some(port) = url.port() {
+            map.insert_num("port", port.into());
+        }
+
+        map.insert_str("path", url.path());
+
+        if let Some(query) = url.query() {
+            map.insert_str("query", query);
+        }
+
+        let mut query_pairs = url.query_pairs().peekable();
+        if query_pairs.peek().is_some() {
+            let mut params = LuaMap::new();
+            for (key, value) in query_pairs {
+                params.insert_str(key, value);
+            }
+            map.insert("params", params);
+        }
+
+        if let Some(fragment) = url.fragment() {
+            map.insert_str("fragment", fragment);
+        }
+
+        Ok(map.into())
     }))
 }
 
@@ -152,6 +193,50 @@ mod tests {
             if url ~= "https://asdf.com/abc?x=1&a=2" then
                 return 'unexpected url'
             end
+        end
+        "#).expect("failed to load script");
+        script.decap().expect("decap failed");
+    }
+
+    #[test]
+    fn verify_url_parse() {
+        let script = Loader::init_default(r#"
+        descr = "verify_url_parse"
+
+        function detect() end
+        function decap()
+            url = url_parse("https://example.com")
+            print(url)
+            if url['scheme'] ~= "https" then return 'scheme' end
+            if url['host'] ~= "example.com" then return 'host' end
+            if url['port'] ~= nil then return 'port' end
+            if url['path'] ~= "/" then return 'path' end
+            if url['query'] ~= nil then return 'query' end
+            if url['fragment'] ~= nil then return 'fragment' end
+            if url['params'] ~= nil then return 'params' end
+        end
+        "#).expect("failed to load script");
+        script.decap().expect("decap failed");
+    }
+
+    #[test]
+    fn verify_url_parse_advanced() {
+        let script = Loader::init_default(r#"
+        descr = "verify_url_parse_advanced"
+
+        function detect() end
+        function decap()
+            url = url_parse("https://example.com:1337/foo/abc?a=b&x=1&x=2&y[]=asdf#foo")
+            print(url)
+            if url['scheme'] ~= "https" then return 'scheme' end
+            if url['host'] ~= "example.com" then return 'host' end
+            if url['port'] ~= 1337 then return 'port' end
+            if url['path'] ~= "/foo/abc" then return 'path' end
+            if url['query'] ~= "a=b&x=1&x=2&y[]=asdf" then return 'query' end
+            if url['fragment'] ~= "foo" then return 'fragment' end
+            if url['params']['a'] ~= "b" then return 'params' end
+            if url['params']['x'] ~= "2" then return 'params' end
+            if url['params']['y[]'] ~= "asdf" then return 'params' end
         end
         "#).expect("failed to load script");
         script.decap().expect("decap failed");
