@@ -35,15 +35,11 @@ use snail::web::{self, HttpClient};
 fn run() -> Result<()> {
     let args = Args::from_args();
 
-    let mut env = env_logger::Env::default();
-    match args.verbose {
-        0 => (),
-        1 => {
-            env = env.filter_or("RUST_LOG", "info");
-        },
-        _ => {
-            env = env.filter_or("RUST_LOG", "debug");
-        },
+    let env = env_logger::Env::default();
+    let env = match args.verbose {
+        0 => env,
+        1 => env.filter_or("RUST_LOG", "info"),
+        _ => env.filter_or("RUST_LOG", "debug"),
     };
     env_logger::init_from_env(env);
 

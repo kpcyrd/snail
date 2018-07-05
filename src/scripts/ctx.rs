@@ -86,6 +86,8 @@ fn ctx<'a, C: HttpClient + 'static, R: DnsResolver + 'static>(http: Arc<C>, reso
     runtime::json_encode(&mut lua, state.clone());
     runtime::last_err(&mut lua, state.clone());
     runtime::print(&mut lua, state.clone());
+    runtime::url_join(&mut lua, state.clone());
+    runtime::url_parse(&mut lua, state.clone());
 
     (lua, state)
 }

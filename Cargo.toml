@@ -43,6 +43,7 @@ serde_urlencoded = "0.5.2"
 reduce = "0.1.1"
 users = "0.7.0"
 tempfile = "3.0.2"
+url = "1.7"
 
 # this conflicts with hyper-rustls 0.13
 #trust-dns-resolver = { version = "0.9", features = ["dns-over-rustls"] }
