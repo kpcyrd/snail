@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use dns::DnsResolver;
-use scripts::runtime;
+use runtime;
 use web::HttpClient;
 use web::structs::{HttpSession, HttpRequest, RequestOptions};
 
