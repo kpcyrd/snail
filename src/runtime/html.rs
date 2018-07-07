@@ -106,21 +106,21 @@ mod tests {
             if last_err() then return end
             print(x)
             if x ~= "https://example.com/foo" then
-                return x
+                return "https://example.com/foo expected"
             end
 
             x = html_meta_refresh('<meta http-equiv="refresh" content="120;   url=?asdf=1&x=y" />')
             if last_err() then return end
             print(x)
             if x ~= "?asdf=1&x=y" then
-                return x
+                return "?asdf=1&x=y expected"
             end
 
             x = html_meta_refresh('<meta http-equiv="refresh" content="0; \n url=/foo/bar">')
             if last_err() then return end
             print(x)
             if x ~= "/foo/bar" then
-                return x
+                return "/foo/bar expected"
             end
         end
         "#).expect("failed to load script");
