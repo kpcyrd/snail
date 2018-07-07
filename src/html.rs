@@ -9,8 +9,8 @@ use structs::LuaMap;
 
 #[derive(Debug, PartialEq)]
 pub struct Element {
-    attrs: HashMap<String, String>,
-    text: String,
+    pub attrs: HashMap<String, String>,
+    pub text: String,
 }
 
 impl Into<AnyLuaValue> for Element {

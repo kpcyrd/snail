@@ -77,6 +77,7 @@ fn ctx<'a, C: HttpClient + 'static, R: DnsResolver + 'static>(http: Arc<C>, reso
     let state = Arc::new(State::new(http, resolver));
 
     runtime::dns(&mut lua, state.clone());
+    runtime::html_meta_refresh(&mut lua, state.clone());
     runtime::html_select(&mut lua, state.clone());
     runtime::html_select_list(&mut lua, state.clone());
     runtime::http_mksession(&mut lua, state.clone());
