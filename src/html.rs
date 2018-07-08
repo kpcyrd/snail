@@ -82,12 +82,17 @@ pub fn html_form(html: &str) -> Result<HashMap<String, String>> {
             None => continue,
         };
 
-        let value = match input.attrs.get("value") {
-            Some(x) => x.to_string(),
-            None => continue,
+        let value = input.attrs.get("value").map(|x| x.to_string());
+
+        let value = match input.attrs.get("type").map(|x| x.as_str()) {
+            Some("hidden") => value,
+            Some("submit") => value,
+            _ => continue,
         };
 
-        form.insert(name, value);
+        if let Some(value) = value {
+            form.insert(name, value);
+        }
     }
 
     Ok(form)

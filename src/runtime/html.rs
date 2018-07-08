@@ -166,12 +166,34 @@ mod tests {
         function decap()
             x = html_form('<form method="POST">\n' ..
                           '    <input type="hidden" name="foo_hidden" value="bar">\n' ..
+                          '    <input name="foo_typeless_input" value="typeless">\n' ..
+                          '    <input type="hidden" name="foo_hidden_valueless">\n' ..
+                          '    <input type="hidden" value="foo_hidden_nameless">\n' ..
+                          '    <input type="checkbox" name="foo_checkbox_on" checked>\n' ..
+                          '    <input type="checkbox" name="foo_checkbox_off">\n' ..
+                          '    <input type="checkbox" name="foo_checkbox_on_custom" value="checked_value" checked>\n' ..
                           '    <input type="submit" name="foo_submit" value="asdf">\n' ..
                           '</form>')
             if last_err() then return end
+            print(x)
 
             if x['foo_hidden'] ~= "bar" then
                 return 'wrong foo_hidden'
+            end
+            if x['foo_typeless_input'] ~= nil then
+                return 'wrong foo_typeless_input'
+            end
+            if x['foo_hidden_valueless'] ~= nil then
+                return 'wrong foo_typeless_input'
+            end
+            if x['foo_checkbox_on'] ~= nil then
+                return 'wrong foo_checkbox_on'
+            end
+            if x['foo_checkbox_off'] ~= nil then
+                return 'wrong foo_checkbox_off'
+            end
+            if x['foo_checkbox_on_custom'] ~= nil then
+                return 'wrong foo_checkbox_on_custom'
             end
             if x['foo_submit'] ~= "asdf" then
                 return 'wrong foo_submit'
