@@ -11,6 +11,7 @@ use structs::LuaMap;
 pub struct Element {
     pub attrs: HashMap<String, String>,
     pub text: String,
+    pub html: String,
 }
 
 impl Into<AnyLuaValue> for Element {
@@ -19,6 +20,7 @@ impl Into<AnyLuaValue> for Element {
 
         map.insert_str("text", self.text);
         map.insert("attrs", LuaMap::from(self.attrs));
+        map.insert_str("html", self.html);
 
         map.into()
     }
@@ -36,9 +38,19 @@ fn transform_element(entry: &kuchiki::NodeDataRef<kuchiki::ElementData>) -> Elem
         }
     }
 
+    let mut html = Vec::new();
+    let html = match as_node.serialize(&mut html) {
+        Ok(_) => String::from_utf8_lossy(&html).to_string(),
+        Err(_) => {
+            debug!("html serialize failed");
+            String::new()
+        },
+    };
+
     Element {
         attrs,
         text,
+        html,
     }
 }
 
@@ -59,6 +71,33 @@ pub fn html_select_list(html: &str, selector: &str) -> Result<Vec<Element>> {
     }
 }
 
+pub fn html_form(html: &str) -> Result<HashMap<String, String>> {
+    let inputs = html_select_list(html, "input")?;
+
+    let mut form = HashMap::new();
+
+    for input in inputs {
+        let name = match input.attrs.get("name") {
+            Some(x) => x.to_string(),
+            None => continue,
+        };
+
+        let value = input.attrs.get("value").map(|x| x.to_string());
+
+        let value = match input.attrs.get("type").map(|x| x.as_str()) {
+            Some("hidden") => value,
+            Some("submit") => value,
+            _ => continue,
+        };
+
+        if let Some(value) = value {
+            form.insert(name, value);
+        }
+    }
+
+    Ok(form)
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -71,6 +110,7 @@ mod tests {
             Element {
                 attrs: vec![(String::from("id"), String::from("yey"))].into_iter().collect(),
                 text: "content".into(),
+                html: r#"<div id="yey">content</div>"#.into(),
             }
         );
     }
@@ -82,6 +122,7 @@ mod tests {
             Element {
                 attrs: vec![(String::from("id"), String::from("yey"))].into_iter().collect(),
                 text: "content".into(),
+                html: r#"<div id="yey">content</div>"#.into(),
             }
         ]);
     }

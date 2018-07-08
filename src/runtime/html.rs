@@ -2,6 +2,7 @@ use errors::Result;
 use dns::DnsResolver;
 use html;
 use scripts::ctx::State;
+use structs::LuaMap;
 use web::HttpClient;
 
 use hlua::{self, AnyLuaValue};
@@ -48,6 +49,14 @@ pub fn html_meta_refresh<C: HttpClient + 'static, R: DnsResolver + 'static>(lua:
     }))
 }
 
+pub fn html_form<C: HttpClient + 'static, R: DnsResolver + 'static>(lua: &mut hlua::Lua, state: Arc<State<C, R>>) {
+    lua.set("html_form", hlua::function1(move |html: String| -> Result<AnyLuaValue> {
+        html::html_form(&html)
+            .map_err(|err| state.set_error(err))
+            .map(|x| LuaMap::from(x).into())
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use scripts::loader::Loader;
@@ -66,6 +75,9 @@ mod tests {
             end
             if x['attrs']['id'] ~= 'yey' then
                 return 'wrong id'
+            end
+            if x['html'] ~= '<div id="yey">content</div>' then
+                return 'wrong html'
             end
         end
         "#).expect("failed to load script");
@@ -89,6 +101,9 @@ mod tests {
             end
             if x[1]['attrs']['id'] ~= 'yey' then
                 return 'wrong id'
+            end
+            if x[1]['html'] ~= '<div id="yey">content</div>' then
+                return 'wrong html'
             end
         end
         "#).expect("failed to load script");
@@ -140,5 +155,51 @@ mod tests {
         "#).expect("failed to load script");
         let x = script.decap();
         assert!(x.is_err());
+    }
+
+    #[test]
+    fn verify_html_form() {
+        let script = Loader::init_default(r#"
+        descr = "html_form"
+
+        function detect() end
+        function decap()
+            x = html_form('<form method="POST">\n' ..
+                          '    <input type="hidden" name="foo_hidden" value="bar">\n' ..
+                          '    <input name="foo_typeless_input" value="typeless">\n' ..
+                          '    <input type="hidden" name="foo_hidden_valueless">\n' ..
+                          '    <input type="hidden" value="foo_hidden_nameless">\n' ..
+                          '    <input type="checkbox" name="foo_checkbox_on" checked>\n' ..
+                          '    <input type="checkbox" name="foo_checkbox_off">\n' ..
+                          '    <input type="checkbox" name="foo_checkbox_on_custom" value="checked_value" checked>\n' ..
+                          '    <input type="submit" name="foo_submit" value="asdf">\n' ..
+                          '</form>')
+            if last_err() then return end
+            print(x)
+
+            if x['foo_hidden'] ~= "bar" then
+                return 'wrong foo_hidden'
+            end
+            if x['foo_typeless_input'] ~= nil then
+                return 'wrong foo_typeless_input'
+            end
+            if x['foo_hidden_valueless'] ~= nil then
+                return 'wrong foo_typeless_input'
+            end
+            if x['foo_checkbox_on'] ~= nil then
+                return 'wrong foo_checkbox_on'
+            end
+            if x['foo_checkbox_off'] ~= nil then
+                return 'wrong foo_checkbox_off'
+            end
+            if x['foo_checkbox_on_custom'] ~= nil then
+                return 'wrong foo_checkbox_on_custom'
+            end
+            if x['foo_submit'] ~= "asdf" then
+                return 'wrong foo_submit'
+            end
+        end
+        "#).expect("failed to load script");
+        script.decap().expect("decap failed");
     }
 }
