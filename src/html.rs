@@ -71,6 +71,28 @@ pub fn html_select_list(html: &str, selector: &str) -> Result<Vec<Element>> {
     }
 }
 
+pub fn html_form(html: &str) -> Result<HashMap<String, String>> {
+    let inputs = html_select_list(html, "input")?;
+
+    let mut form = HashMap::new();
+
+    for input in inputs {
+        let name = match input.attrs.get("name") {
+            Some(x) => x.to_string(),
+            None => continue,
+        };
+
+        let value = match input.attrs.get("value") {
+            Some(x) => x.to_string(),
+            None => continue,
+        };
+
+        form.insert(name, value);
+    }
+
+    Ok(form)
+}
+
 
 #[cfg(test)]
 mod tests {

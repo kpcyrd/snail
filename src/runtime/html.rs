@@ -2,6 +2,7 @@ use errors::Result;
 use dns::DnsResolver;
 use html;
 use scripts::ctx::State;
+use structs::LuaMap;
 use web::HttpClient;
 
 use hlua::{self, AnyLuaValue};
@@ -45,6 +46,14 @@ pub fn html_meta_refresh<C: HttpClient + 'static, R: DnsResolver + 'static>(lua:
         } else {
             Err(state.set_error(format_err!("url= attribute not found")))
         }
+    }))
+}
+
+pub fn html_form<C: HttpClient + 'static, R: DnsResolver + 'static>(lua: &mut hlua::Lua, state: Arc<State<C, R>>) {
+    lua.set("html_form", hlua::function1(move |html: String| -> Result<AnyLuaValue> {
+        html::html_form(&html)
+            .map_err(|err| state.set_error(err))
+            .map(|x| LuaMap::from(x).into())
     }))
 }
 
@@ -146,5 +155,29 @@ mod tests {
         "#).expect("failed to load script");
         let x = script.decap();
         assert!(x.is_err());
+    }
+
+    #[test]
+    fn verify_html_form() {
+        let script = Loader::init_default(r#"
+        descr = "html_form"
+
+        function detect() end
+        function decap()
+            x = html_form('<form method="POST">\n' ..
+                          '    <input type="hidden" name="foo_hidden" value="bar">\n' ..
+                          '    <input type="submit" name="foo_submit" value="asdf">\n' ..
+                          '</form>')
+            if last_err() then return end
+
+            if x['foo_hidden'] ~= "bar" then
+                return 'wrong foo_hidden'
+            end
+            if x['foo_submit'] ~= "asdf" then
+                return 'wrong foo_submit'
+            end
+        end
+        "#).expect("failed to load script");
+        script.decap().expect("decap failed");
     }
 }
