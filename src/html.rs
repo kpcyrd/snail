@@ -11,6 +11,7 @@ use structs::LuaMap;
 pub struct Element {
     pub attrs: HashMap<String, String>,
     pub text: String,
+    pub html: String,
 }
 
 impl Into<AnyLuaValue> for Element {
@@ -19,6 +20,7 @@ impl Into<AnyLuaValue> for Element {
 
         map.insert_str("text", self.text);
         map.insert("attrs", LuaMap::from(self.attrs));
+        map.insert_str("html", self.html);
 
         map.into()
     }
@@ -36,9 +38,19 @@ fn transform_element(entry: &kuchiki::NodeDataRef<kuchiki::ElementData>) -> Elem
         }
     }
 
+    let mut html = Vec::new();
+    let html = match as_node.serialize(&mut html) {
+        Ok(_) => String::from_utf8_lossy(&html).to_string(),
+        Err(_) => {
+            debug!("html serialize failed");
+            String::new()
+        },
+    };
+
     Element {
         attrs,
         text,
+        html,
     }
 }
 
@@ -71,6 +83,7 @@ mod tests {
             Element {
                 attrs: vec![(String::from("id"), String::from("yey"))].into_iter().collect(),
                 text: "content".into(),
+                html: r#"<div id="yey">content</div>"#.into(),
             }
         );
     }
@@ -82,6 +95,7 @@ mod tests {
             Element {
                 attrs: vec![(String::from("id"), String::from("yey"))].into_iter().collect(),
                 text: "content".into(),
+                html: r#"<div id="yey">content</div>"#.into(),
             }
         ]);
     }

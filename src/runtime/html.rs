@@ -67,6 +67,9 @@ mod tests {
             if x['attrs']['id'] ~= 'yey' then
                 return 'wrong id'
             end
+            if x['html'] ~= '<div id="yey">content</div>' then
+                return 'wrong html'
+            end
         end
         "#).expect("failed to load script");
         script.decap().expect("decap failed");
@@ -89,6 +92,9 @@ mod tests {
             end
             if x[1]['attrs']['id'] ~= 'yey' then
                 return 'wrong id'
+            end
+            if x[1]['html'] ~= '<div id="yey">content</div>' then
+                return 'wrong html'
             end
         end
         "#).expect("failed to load script");
