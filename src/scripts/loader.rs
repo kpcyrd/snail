@@ -8,23 +8,28 @@ use wifi::NetworkStatus;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+use std::collections::HashMap;
 
 
 #[derive(Debug, Clone)]
 pub struct Loader {
-    scripts: Vec<String>,
+    scripts: HashMap<String, (String, bool)>,
 }
 
 impl Loader {
     pub fn new() -> Loader {
         Loader {
-            scripts: Vec::new(),
+            scripts: HashMap::new(),
         }
+    }
+
+    fn insert<I: Into<String>>(&mut self, name: I, script: String, private_script: bool) {
+        self.scripts.insert(name.into(), (script, private_script));
     }
 
     pub fn init<C: HttpClient + 'static, R: DnsResolver + 'static>(&self, http: Arc<C>, resolver: Arc<R>) -> Result<Vec<Script<C, R>>> {
         self.scripts.iter()
-            .map(|code| {
+            .map(|(_, (code, _))| {
                 Script::load(code.to_string(), http.clone(), resolver.clone())
             })
             .collect()
@@ -59,8 +64,8 @@ impl Loader {
         self.scripts.len()
     }
 
-    pub fn load(&mut self, code: String) -> Result<()> {
-        self.scripts.push(code);
+    pub fn load<I: Into<String>>(&mut self, name: I, code: String, private_script: bool) -> Result<()> {
+        self.insert(name, code, private_script);
         Ok(())
     }
 
@@ -72,39 +77,62 @@ impl Loader {
     }
 
     pub fn load_default_scripts(&mut self) -> Result<usize> {
-        self.load_from_folder("/usr/lib/snaild/scripts")
+        self.load_from_folder("/usr/lib/snaild/scripts", false)
     }
 
     pub fn load_private_scripts(&mut self, config: &Config) -> Result<usize> {
         let mut counter = 0;
 
-        counter += self.load_from_folder("/etc/snail/scripts/")?;
+        counter += self.load_from_folder("/etc/snail/scripts/", true)?;
 
         for (path, _) in &config.scripts.paths {
-            counter += self.load_from_folder(path)?;
+            counter += self.load_from_folder(path, true)?;
         }
 
         Ok(counter)
     }
 
-    pub fn load_from_folder<P: AsRef<Path>>(&mut self, path: P) -> Result<usize> {
+    pub fn load_from_folder<P: AsRef<Path>>(&mut self, path: P, private_script: bool) -> Result<usize> {
         let mut counter = 0;
 
-        if let Ok(paths) = fs::read_dir(path) {
+        if let Ok(paths) = fs::read_dir(&path) {
             for path in paths {
                 let path = path?;
-                use std::os::unix::ffi::OsStrExt;
-                if path.file_name().as_bytes().ends_with(b".lua") {
-                    let code = fs::read_to_string(path.path())
-                        .context(format!("failed to open {:?}", path.path()))?;
-                    self.scripts.push(code);
-                    counter += 1;
+
+                let file_name = match path.file_name().into_string() {
+                    Ok(file_name) => file_name,
+                    Err(file_name) => {
+                        warn!("invalid filename: {:?}", file_name);
+                        continue
+                    },
+                };
+
+                if !file_name.ends_with(".lua") {
+                    continue;
                 }
+
+                let code = fs::read_to_string(path.path())
+                    .context(format!("failed to open {:?}", path.path()))?;
+
+                self.insert(file_name, code, private_script);
+                counter += 1;
             }
+        } else {
+            warn!("couldn't access script folder: {:?}", path.as_ref());
         }
 
-        // if this fails, ignore the error
-        // TODO: maybe print a warning
         Ok(counter)
+    }
+
+    pub fn count_default_scripts(&self) -> usize {
+        self.scripts.iter()
+            .filter(|(_, (_, private_script))| !private_script)
+            .count()
+    }
+
+    pub fn count_private_scripts(&self) -> usize {
+        self.scripts.iter()
+            .filter(|(_, (_, private_script))| *private_script)
+            .count()
     }
 }
