@@ -1,3 +1,5 @@
+#![recursion_limit = "128"]
+
 #![warn(unused_extern_crates)]
 extern crate hlua_badtouch as hlua;
 #[macro_use] extern crate structopt;

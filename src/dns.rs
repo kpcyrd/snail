@@ -81,17 +81,17 @@ impl DnsResolver for Resolver {
     }
 }
 
-pub struct ResolverFuture {
-    resolver: tdr::ResolverFuture,
+pub struct AsyncResolver {
+    resolver: tdr::AsyncResolver,
 }
 
-impl ResolverFuture {
-    pub fn cloudflare() -> ResolverFuture {
-        ResolverFuture::with_udp_addr(&[String::from("1.1.1.1:53"),
+impl AsyncResolver {
+    pub fn cloudflare() -> AsyncResolver {
+        AsyncResolver::with_udp_addr(&[String::from("1.1.1.1:53"),
                                         String::from("1.0.0.1:53")]).unwrap()
     }
 
-    pub fn with_udp_addr(recursors: &[String]) -> Result<ResolverFuture> {
+    pub fn with_udp_addr(recursors: &[String]) -> Result<AsyncResolver> {
         let mut config = ResolverConfig::new();
 
         for recursor in recursors {
@@ -106,23 +106,24 @@ impl ResolverFuture {
         opts.timeout = Duration::from_secs(1);
 
         let mut core = reactor::Core::new()?;
-        let resolver = core.run(tdr::ResolverFuture::new(config, opts));
+        let (resolver, worker) = tdr::AsyncResolver::new(config, opts);
+        let worker = core.run(worker);
 
-        let resolver = match resolver {
-            Ok(resolver) => resolver,
+        let _worker = match worker {
+            Ok(worker) => worker,
             Err(_) => bail!("resolver init error"), // TODO
         };
 
-        Ok(ResolverFuture {
+        Ok(AsyncResolver {
             resolver,
         })
     }
 
-    pub fn with_udp(recursors: &[String]) -> Result<ResolverFuture> {
+    pub fn with_udp(recursors: &[String]) -> Result<AsyncResolver> {
         let recursors = recursors.iter()
                             .map(|x| format!("{}:53", x))
                             .collect::<Vec<_>>();
-        ResolverFuture::with_udp_addr(&recursors)
+        AsyncResolver::with_udp_addr(&recursors)
     }
 
     pub fn resolve(&self, name: &str) -> Resolving {
