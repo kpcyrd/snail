@@ -68,6 +68,12 @@ zmq = "0.8.2"
 syscallz = "0.7"
 caps = "0.2"
 
+# vpn
+tun-tap = "0.1.1"
+snow = "0.1.9"
+nom = "4.0.0"
+pktparse = "0.3.0"
+
 [dev-dependencies]
 pseudo = "0.1.0"
 boxxy = "0.7.0"

@@ -18,6 +18,7 @@ use snail::ipc::{Server, Client, CtlRequest, CtlReply};
 use snail::recursor::DnsHandler;
 use snail::sandbox;
 use snail::scripts::Loader;
+use snail::vpn;
 use snail::wifi::NetworkStatus;
 
 use std::env;
@@ -365,6 +366,13 @@ fn run() -> Result<()> {
                 },
                 Some(SubCommand::Dns(_args)) => {
                     dns_thread(&socket, &config)
+                },
+                Some(SubCommand::Vpnd(args)) => {
+                    vpn::server::run(args)
+                },
+                Some(SubCommand::Vpn(args)) => {
+                    println!("vpn: {:?}", args);
+                    unimplemented!()
                 },
                 None => {
                     error!("dhcp event expected but not found");

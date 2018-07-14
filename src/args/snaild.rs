@@ -35,6 +35,14 @@ pub enum SubCommand {
                 name="dns",
                 about="Start dns resolver")]
     Dns(Dns),
+    #[structopt(author = "",
+                name="vpnd",
+                about="Start vpn server daemon")]
+    Vpnd(Vpnd),
+    #[structopt(author = "",
+                name="vpn",
+                about="Start vpn client daemon")]
+    Vpn(Vpn),
 }
 
 #[derive(StructOpt, Debug)]
@@ -50,4 +58,13 @@ pub struct Dhcp {
 #[derive(StructOpt, Debug)]
 pub struct Dns {
     // pub interface: String,
+}
+
+#[derive(StructOpt, Debug)]
+pub struct Vpnd {
+    pub interface: String,
+}
+
+#[derive(StructOpt, Debug)]
+pub struct Vpn {
 }
