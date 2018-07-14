@@ -212,10 +212,15 @@ fn run() -> Result<()> {
             args::gen_completions::<args::snailctl::Args>("snailctl");
         },
         None => {
-            // use empty network status, we don't support function calls here
+            // use empty network status, we don't actually run those scripts
             let mut loader = Loader::new();
-            let default_scripts = loader.load_default_scripts()?;
-            let private_scripts = loader.load_private_scripts(&config)?;
+            loader.load_default_scripts()?;
+            loader.load_private_scripts(&config)?;
+
+            // count the scripts again so we get correct numbers regarding
+            // private scripts overlaying default scripts
+            let default_scripts = loader.count_default_scripts();
+            let private_scripts = loader.count_private_scripts();
 
             print!("snailctl - parasitic network manager
 

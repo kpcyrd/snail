@@ -57,7 +57,7 @@ rustls = "0.12"
 tokio-core = "0.1.17"
 futures = "0.1"
 ct-logs = "0.3"
-webpki = "0.18.0-alpha"
+webpki = "0.18.1"
 webpki-roots = "0.14"
 
 nix = "0.11"
