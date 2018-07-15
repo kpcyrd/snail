@@ -1,4 +1,6 @@
-use errors::Result;
+use errors::{Result, ResultExt};
+use config::Config;
+use sandbox;
 
 use trust_dns_server::server::{ServerFuture, Request, RequestHandler, ResponseHandler};
 use trust_dns_server::authority::{MessageResponseBuilder, AuthLookup};
@@ -10,6 +12,7 @@ use tokio::runtime::current_thread::Runtime;
 use trust_dns_resolver::Resolver;
 use trust_dns_resolver::config::*;
 use trust_dns_proto::op::header::Header;
+use trust_dns_proto::op::header::MessageType;
 use trust_dns_resolver::lookup::Lookup;
 use trust_dns_resolver::error::ResolveResult;
 use trust_dns_server::authority::authority::LookupRecords;
@@ -21,23 +24,55 @@ use std::io;
 use std::thread;
 use std::net::SocketAddr;
 use std::time::Instant;
+use std::sync::mpsc;
 
 
 pub struct DnsHandler {
     channel: mrsc::Channel<(String, RecordType), ResolveResult<Lookup>>,
+    seccomp_signal: Option<mpsc::Sender<()>>,
 }
 
 impl DnsHandler {
-    pub fn new() -> DnsHandler {
+    pub fn new(config: &Config) -> Result<DnsHandler> {
         // TODO: dirty hack incoming
         // create a new thread, we can't run the server in the same thread as the resolver
         // the way it's currently built, we can only resolve one record at a time
         let server = mrsc::Server::<(String, RecordType), ResolveResult<Lookup>>::new();
         let channel = server.pop();
 
+        let (tx, rx) = mpsc::channel();
+        let danger_disable_seccomp_security = config.security.danger_disable_seccomp_security;
+
+        let resolver_config = match config.dns {
+            Some(ref config) => {
+                let name_servers = NameServerConfigGroup::from_ips_https(
+                    &config.servers,
+                    config.port,
+                    config.sni.clone(),
+                );
+
+                ResolverConfig::from_parts(
+                    None, // domain
+                    vec![], // search
+                    name_servers,
+                )
+            },
+            _ => bail!("dns is not configured"),
+        };
+
+        let mut resolver_opts = ResolverOpts::default();
+        resolver_opts.use_hosts_file = false;
+        let resolver = Resolver::new(resolver_config, resolver_opts)?;
+
         thread::spawn(move || {
-            let resolver_config = ResolverConfig::cloudflare_https();
-            let resolver = Resolver::new(resolver_config, ResolverOpts::default()).unwrap();
+            // block until seccomp can be setup
+            rx.recv().unwrap();
+
+            if !danger_disable_seccomp_security {
+                sandbox::dns_stage3()
+                    .context("sandbox dns_stage3 failed")
+                    .unwrap();
+            }
 
             loop {
                 let req = server.recv().unwrap();
@@ -52,13 +87,15 @@ impl DnsHandler {
             }
         });
 
-        DnsHandler {
+        Ok(DnsHandler {
             channel,
-        }
+            seccomp_signal: Some(tx),
+        })
     }
 
-    pub fn run(self, addr: &SocketAddr) -> Result<()> {
+    pub fn run(mut self, addr: &SocketAddr, config: &Config) -> Result<()> {
         let mut io_loop = Runtime::new()?;
+        let seccomp_signal = self.seccomp_signal.take().unwrap();
         let server = ServerFuture::new(self);
 
         let socket = UdpSocket::bind(addr)?;
@@ -68,6 +105,14 @@ impl DnsHandler {
             info!("dns recursor starting up");
             future::empty()
         }));
+
+        // signal that seccomp can be activated
+        seccomp_signal.send(()).unwrap();
+
+        if !config.security.danger_disable_seccomp_security {
+            sandbox::dns_stage3()
+                .context("sandbox dns_stage3 failed")?;
+        }
 
         if let Err(e) = io_loop.block_on(server_future.map_err(|_| io::Error::new(
             io::ErrorKind::Interrupted,
@@ -100,6 +145,9 @@ impl RequestHandler for DnsHandler {
                 // msg.set_id(request.message.id());
                 let mut header = Header::new();
                 header.set_id(request.message.id());
+                header.set_message_type(MessageType::Response);
+                header.set_recursion_desired(true);
+                header.set_recursion_available(true);
 
                 let now = Instant::now();
                 let ttl = resp.valid_until();

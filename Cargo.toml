@@ -64,7 +64,9 @@ webpki-roots = "0.14"
 
 nix = "0.11"
 zmq = "0.8.2"
-syscallz = "0.6"
+#syscallz = "0.6"
+syscallz = { git = "https://github.com/kpcyrd/syscallz-rs.git" }
+caps = "0.2"
 
 [dev-dependencies]
 pseudo = "0.1.0"

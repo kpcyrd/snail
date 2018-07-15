@@ -89,19 +89,16 @@ fn run() -> Result<()> {
             }
         },
         Some(SubCommand::Decap(decap)) => {
-            if !config.danger_disable_seccomp_security {
+            if !config.security.danger_disable_seccomp_security {
                 sandbox::decap_stage1()?;
             }
 
             let mut loader = Loader::new();
             loader.load_all_scripts(&config)?;
 
-            /*
-            // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
-            if !config.danger_disable_seccomp_security {
-                sandbox::decap_stage2()?;
+            if !config.security.danger_disable_seccomp_security {
+                sandbox::decap_stage2(&config)?;
             }
-            */
 
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
@@ -115,7 +112,7 @@ fn run() -> Result<()> {
                 decap.dns
             };
 
-            if !config.danger_disable_seccomp_security {
+            if !config.security.danger_disable_seccomp_security {
                 sandbox::decap_stage3()?;
             }
 

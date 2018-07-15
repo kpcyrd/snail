@@ -1277,6 +1277,7 @@ version = "0.3.0"
 dependencies = [
  "base64 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "boxxy 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "caps 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "colored 1.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ct-logs 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dbus 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1302,7 +1303,7 @@ dependencies = [
  "serde_json 1.0.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_urlencoded 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "syscallz 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syscallz 0.6.0 (git+https://github.com/kpcyrd/syscallz-rs.git)",
  "tempfile 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1444,7 +1445,7 @@ dependencies = [
 [[package]]
 name = "syscallz"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/kpcyrd/syscallz-rs.git#fb48cffc2a5daedb1d6f2488f6562b04805e234b"
 dependencies = [
  "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2208,7 +2209,7 @@ dependencies = [
 "checksum syn 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)" = "2beff8ebc3658f07512a413866875adddd20f4fd47b2a4e6c9da65cd281baaea"
 "checksum synom 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)" = "a393066ed9010ebaed60b9eafa373d4b1baac186dd7e008555b0f702b51945b6"
 "checksum synstructure 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3a761d12e6d8dcb4dcf952a7a89b475e3a9d69e4a69307e01a470977642914bd"
-"checksum syscallz 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b3f5f4e103da495b2f07820f368d14ff4d7a78af237a541ea0f1d96aff49e235"
+"checksum syscallz 0.6.0 (git+https://github.com/kpcyrd/syscallz-rs.git)" = "<none>"
 "checksum tar 0.4.16 (registry+https://github.com/rust-lang/crates.io-index)" = "e8f41ca4a5689f06998f0247fcb60da6c760f1950cc9df2a10d71575ad0b062a"
 "checksum tempfile 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "47776f63b85777d984a50ce49d6b9e58826b6a3766a449fc95bc66cd5663c15b"
 "checksum tendril 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "9de21546595a0873061940d994bbbc5c35f024ae4fd61ec5c5b159115684f508"

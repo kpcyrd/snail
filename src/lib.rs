@@ -17,6 +17,7 @@ extern crate serde_urlencoded;
 extern crate toml;
 extern crate users;
 extern crate syscallz;
+extern crate caps;
 extern crate url;
 
 extern crate trust_dns_resolver;

@@ -1,6 +1,10 @@
 use errors::Result;
+use config::Config;
 
+use caps::{self, CapSet, Capability};
 use nix;
+use nix::unistd::{Uid, Gid, setuid, setgid, setgroups};
+use users;
 
 use std::env;
 
@@ -38,14 +42,71 @@ pub fn chroot(path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn can_chroot() -> Result<bool> {
+    let perm_chroot = match caps::has_cap(None, CapSet::Permitted, Capability::CAP_SYS_CHROOT) {
+        Ok(perm_chroot) => perm_chroot,
+        Err(_) => bail!("could not check for capability"),
+    };
+    debug!("caps: can chroot: {:?}", perm_chroot);
+    Ok(perm_chroot)
+}
+
+pub fn try_chroot(config: &Config, path: &str) -> Result<()> {
+    if can_chroot()? {
+        chroot(path)?;
+    } else if config.security.strict_chroot {
+        bail!("strict-chroot is set and process didn't chroot")
+    } else {
+        warn!("chroot is not enabled");
+    }
+
+    Ok(())
+}
+
+pub fn resolve_uid(config: &Config) -> Result<Option<(u32, u32)>> {
+    Ok(match config.security.user {
+        Some(ref user) => {
+            let user = match users::get_user_by_name(&user) {
+                Some(user) => user,
+                None => bail!("invalid user"),
+            };
+            Some((user.uid(), user.primary_group_id()))
+        },
+        _ => None,
+    })
+}
+
+pub fn drop_user(user: Option<(u32, u32)>) -> Result<()> {
+    let uid = Uid::current();
+    let is_root = uid.is_root();
+
+    if is_root {
+        match user {
+            Some((uid, gid)) => {
+                info!("setting uid to {:?}", uid);
+                setgroups(&[])?;
+                setgid(Gid::from_raw(gid))?;
+                setuid(Uid::from_raw(uid))?;
+            },
+            None => {
+                warn!("executing as root!");
+            },
+        }
+    } else {
+        warn!("can't drop privileges, executing as uid={}", uid);
+    }
+
+    Ok(())
+}
+
 pub fn decap_stage1() -> Result<()> {
     seccomp::decap_stage1()?;
     info!("decap_stage 1/2 enabled");
     Ok(())
 }
 
-pub fn decap_stage2() -> Result<()> {
-    chroot("/run/snail")?;
+pub fn decap_stage2(config: &Config) -> Result<()> {
+    try_chroot(config, "/run/snail")?;
     info!("decap_stage 2/3 enabled");
     Ok(())
 }
@@ -71,6 +132,29 @@ pub fn zmq_stage2() -> Result<()> {
 pub fn zmq_stage3() -> Result<()> {
     seccomp::zmq_stage3()?;
     info!("zmq_stage 3/3 enabled");
+    Ok(())
+}
+
+pub fn dns_stage1() -> Result<()> {
+    seccomp::dns_stage1()?;
+    info!("dns_stage 1/3 enabled");
+    Ok(())
+}
+
+pub fn dns_stage2(config: &Config) -> Result<()> {
+    let user = resolve_uid(&config)?;
+
+    try_chroot(config, "/run/snail")?;
+
+    drop_user(user)?;
+
+    info!("dns_stage 2/3 enabled");
+    Ok(())
+}
+
+pub fn dns_stage3() -> Result<()> {
+    seccomp::dns_stage3()?;
+    info!("dns_stage 3/3 enabled");
     Ok(())
 }
 

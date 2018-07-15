@@ -248,3 +248,80 @@ pub fn zmq_stage3() -> Result<()> {
     info!("zmq_stage 3/3 is active");
     Ok(())
 }
+
+pub fn dns_stage1() -> Result<()> {
+    let mut ctx = Context::init()?;
+
+    ctx.allow_syscall(Syscall::futex)?;
+    ctx.allow_syscall(Syscall::read)?;
+    ctx.allow_syscall(Syscall::write)?;
+    ctx.allow_syscall(Syscall::epoll_ctl)?;
+    ctx.allow_syscall(Syscall::epoll_wait)?;
+    ctx.allow_syscall(Syscall::recvfrom)?;
+    ctx.allow_syscall(Syscall::sendto)?;
+    ctx.allow_syscall(Syscall::close)?;
+    ctx.allow_syscall(Syscall::getrandom)?;
+    ctx.allow_syscall(Syscall::connect)?;
+    ctx.allow_syscall(Syscall::fcntl)?;
+    ctx.allow_syscall(Syscall::socket)?;
+    ctx.allow_syscall(Syscall::pipe2)?;
+    ctx.allow_syscall(Syscall::epoll_create1)?;
+    ctx.allow_syscall(Syscall::getsockopt)?;
+    ctx.allow_syscall(Syscall::getsockname)?;
+    ctx.allow_syscall(Syscall::mmap)?; // needed for stage1
+    ctx.allow_syscall(Syscall::mprotect)?; // needed for stage1
+    ctx.allow_syscall(Syscall::clone)?; // needed for stage1
+    ctx.allow_syscall(Syscall::openat)?; // needed for stage1
+    ctx.allow_syscall(Syscall::set_robust_list)?; // needed for stage1
+    ctx.allow_syscall(Syscall::sigaltstack)?; // needed for stage1
+    ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
+    ctx.allow_syscall(Syscall::munmap)?; // needed for stage1
+    ctx.allow_syscall(Syscall::sched_getaffinity)?; // needed for stage1
+    ctx.allow_syscall(Syscall::capget)?; // needed for stage1
+    ctx.allow_syscall(Syscall::getuid)?; // needed for stage1
+    ctx.allow_syscall(Syscall::bind)?; // needed for stage1
+    ctx.allow_syscall(Syscall::ioctl)?; // needed for stage1
+    ctx.allow_syscall(Syscall::chroot)?; // needed for stage1
+    ctx.allow_syscall(Syscall::chdir)?; // needed for stage1
+    ctx.allow_syscall(Syscall::getpid)?; // needed for stage1
+    ctx.allow_syscall(Syscall::tgkill)?; // needed for stage1
+    ctx.allow_syscall(Syscall::setgroups)?; // needed for stage1
+    ctx.allow_syscall(Syscall::setgid)?; // needed for stage1
+    ctx.allow_syscall(Syscall::setuid)?; // needed for stage1
+    ctx.allow_syscall(Syscall::rt_sigreturn)?; // needed for stage1
+    ctx.allow_syscall(Syscall::madvise)?; // needed for stage1
+    ctx.allow_syscall(Syscall::exit_group)?; // needed for stage1
+    ctx.allow_syscall(Syscall::prctl)?; // needed for stage1
+    ctx.allow_syscall(Syscall::seccomp)?; // needed for stage1
+
+    ctx.load()?;
+
+    info!("dns_stage 1/3 is active");
+    Ok(())
+}
+
+pub fn dns_stage3() -> Result<()> {
+    let mut ctx = Context::init()?;
+
+    ctx.allow_syscall(Syscall::futex)?;
+    ctx.allow_syscall(Syscall::read)?;
+    ctx.allow_syscall(Syscall::write)?;
+    ctx.allow_syscall(Syscall::epoll_ctl)?;
+    ctx.allow_syscall(Syscall::epoll_wait)?;
+    ctx.allow_syscall(Syscall::recvfrom)?;
+    ctx.allow_syscall(Syscall::sendto)?;
+    ctx.allow_syscall(Syscall::close)?;
+    ctx.allow_syscall(Syscall::getrandom)?;
+    ctx.allow_syscall(Syscall::connect)?;
+    ctx.allow_syscall(Syscall::fcntl)?;
+    ctx.allow_syscall(Syscall::socket)?;
+    ctx.allow_syscall(Syscall::pipe2)?;
+    ctx.allow_syscall(Syscall::epoll_create1)?;
+    ctx.allow_syscall(Syscall::getsockopt)?;
+    ctx.allow_syscall(Syscall::getsockname)?;
+
+    ctx.load()?;
+
+    info!("dns_stage 3/3 is active");
+    Ok(())
+}

@@ -5,6 +5,7 @@ use errors::Result;
 use ipc;
 
 use std::fs;
+use std::net::{IpAddr, SocketAddr};
 use std::collections::HashMap;
 
 
@@ -15,11 +16,10 @@ pub struct Config {
     #[serde(default)]
     pub daemon: DaemonConfig,
     #[serde(default)]
-    pub scripts: ScriptConfig,
-
-    /// this flag is going to be removed eventually
+    pub security: SecurityConfig,
+    pub dns: Option<DnsConfig>,
     #[serde(default)]
-    pub danger_disable_seccomp_security: bool,
+    pub scripts: ScriptConfig,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -52,6 +52,29 @@ impl DaemonConfig {
 
         Ok(())
     }
+}
+
+#[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    pub user: Option<String>,
+    #[serde(default)]
+    pub strict_chroot: bool,
+
+    /// this flag is going to be removed eventually
+    #[serde(default)]
+    pub danger_disable_seccomp_security: bool,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct DnsConfig {
+    #[serde(default)]
+    pub standalone: bool,
+
+    pub bind: SocketAddr,
+
+    pub servers: Vec<IpAddr>,
+    pub port: u16,
+    pub sni: String,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

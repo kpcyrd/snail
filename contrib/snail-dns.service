@@ -1,0 +1,15 @@
+[Unit]
+Description=snaild dns recursor
+Documentation=https://github.com/kpcyrd/snail
+
+[Service]
+ExecStart=/usr/bin/snaild dns
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateTmp=true
+PrivateDevices=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=network-online.target
