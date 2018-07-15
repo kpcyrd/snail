@@ -115,10 +115,8 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
     loader.load_all_scripts(config)?;
 
     if !config.security.danger_disable_seccomp_security {
-        sandbox::decap_stage2(&config)
+        socket = sandbox::decap_stage2(&config, &socket)
             .context("sandbox decap_stage2 failed")?;
-        // after the chroot, update socket path
-        socket = sandbox::chroot_socket_path(&socket, sandbox::CHROOT)?;
     }
 
     let mut client = Client::connect(&socket)?;
@@ -149,7 +147,7 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn dns_thread(config: &Config) -> Result<()> {
+fn dns_thread(socket: &str, config: &Config) -> Result<()> {
     if !config.security.danger_disable_seccomp_security {
         sandbox::dns_stage1()
             .context("sandbox dns_stage1 failed")?;
@@ -160,7 +158,7 @@ fn dns_thread(config: &Config) -> Result<()> {
     let server = DnsHandler::new(&config)?;
 
     if !config.security.danger_disable_seccomp_security {
-        sandbox::dns_stage2(&config)
+        sandbox::dns_stage2(&config, &socket)
             .context("sandbox dns_stage2 failed")?;
     }
 
@@ -355,7 +353,7 @@ fn run() -> Result<()> {
                     decap_thread(&socket, &config)
                 },
                 Some(SubCommand::Dns(_args)) => {
-                    dns_thread(&config)
+                    dns_thread(&socket, &config)
                 },
                 None => {
                     error!("dhcp event expected but not found");

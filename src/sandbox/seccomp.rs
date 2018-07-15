@@ -71,6 +71,7 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::sched_setscheduler)?; // needed for stage1
     ctx.allow_syscall(Syscall::getpeername)?; // needed for stage1
     ctx.allow_syscall(Syscall::chroot)?; // needed for stage1
+    ctx.allow_syscall(Syscall::capget)?; // needed for stage1
     ctx.allow_syscall(Syscall::chdir)?; // needed for stage1
     ctx.allow_syscall(Syscall::seccomp)?; // needed for stage1
 

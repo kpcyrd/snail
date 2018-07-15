@@ -46,7 +46,7 @@ fn run() -> Result<()> {
     let config = config::read_from(config::PATH)
                     .context("failed to load config")?;
     debug!("config: {:?}", config);
-    let socket = args.socket.unwrap_or(config.daemon.socket.clone());
+    let mut socket = args.socket.unwrap_or(config.daemon.socket.clone());
 
     match args.subcommand {
         Some(SubCommand::Scan(scan)) => {
@@ -97,7 +97,7 @@ fn run() -> Result<()> {
             loader.load_all_scripts(&config)?;
 
             if !config.security.danger_disable_seccomp_security {
-                sandbox::decap_stage2(&config)?;
+                socket = sandbox::decap_stage2(&config, &socket)?;
             }
 
             let mut client = Client::connect(&socket)?;

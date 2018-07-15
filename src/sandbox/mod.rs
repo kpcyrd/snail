@@ -51,16 +51,19 @@ pub fn can_chroot() -> Result<bool> {
     Ok(perm_chroot)
 }
 
-pub fn try_chroot(config: &Config, path: &str) -> Result<()> {
+pub fn try_chroot(config: &Config, path: &str, socket: &str) -> Result<String> {
+    let mut socket = socket.to_string();
+
     if can_chroot()? {
         chroot(path)?;
+        socket = chroot_socket_path(&socket, path)?;
     } else if config.security.strict_chroot {
         bail!("strict-chroot is set and process didn't chroot")
     } else {
         warn!("chroot is not enabled");
     }
 
-    Ok(())
+    Ok(socket)
 }
 
 pub fn resolve_uid(config: &Config) -> Result<Option<(u32, u32)>> {
@@ -105,10 +108,10 @@ pub fn decap_stage1() -> Result<()> {
     Ok(())
 }
 
-pub fn decap_stage2(config: &Config) -> Result<()> {
-    try_chroot(config, "/run/snail")?;
+pub fn decap_stage2(config: &Config, socket: &str) -> Result<String> {
+    let socket = try_chroot(config, CHROOT, socket)?;
     info!("decap_stage 2/3 enabled");
-    Ok(())
+    Ok(socket)
 }
 
 pub fn decap_stage3() -> Result<()> {
@@ -124,7 +127,7 @@ pub fn zmq_stage1() -> Result<()> {
 }
 
 pub fn zmq_stage2() -> Result<()> {
-    chroot("/run/snail")?;
+    chroot(CHROOT)?;
     info!("zmq_stage 2/3 enabled");
     Ok(())
 }
@@ -141,15 +144,15 @@ pub fn dns_stage1() -> Result<()> {
     Ok(())
 }
 
-pub fn dns_stage2(config: &Config) -> Result<()> {
+pub fn dns_stage2(config: &Config, socket: &str) -> Result<String> {
     let user = resolve_uid(&config)?;
 
-    try_chroot(config, "/run/snail")?;
+    let socket = try_chroot(config, CHROOT, socket)?;
 
     drop_user(user)?;
 
     info!("dns_stage 2/3 enabled");
-    Ok(())
+    Ok(socket)
 }
 
 pub fn dns_stage3() -> Result<()> {
