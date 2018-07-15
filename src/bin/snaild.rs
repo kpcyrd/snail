@@ -148,6 +148,17 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
     Ok(())
 }
 
+fn dns_thread() -> Result<()> {
+    // TODO: sandboxing
+    let addr = "127.0.0.1:5333".parse()?;
+
+    use snail::recursor::DnsHandler;
+    let server = DnsHandler::new();
+    server.run(&addr)?;
+
+    Ok(())
+}
+
 fn send_to_child(child: &mut Child, status: NetworkStatus) -> Result<()> {
     if let Some(stdin) = &mut child.stdin {
         debug!("sending to child: {:?}", status);
@@ -332,6 +343,9 @@ fn run() -> Result<()> {
                 },
                 Some(SubCommand::Decap) => {
                     decap_thread(&socket, &config)
+                },
+                Some(SubCommand::Dns(_args)) => {
+                    dns_thread()
                 },
                 None => {
                     error!("dhcp event expected but not found");

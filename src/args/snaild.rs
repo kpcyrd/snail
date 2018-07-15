@@ -31,6 +31,10 @@ pub enum SubCommand {
                 name="decap",
                 about="Start decap daemon")]
     Decap,
+    #[structopt(author = "",
+                name="dns",
+                about="Start dns resolver")]
+    Dns(Dns),
 }
 
 #[derive(StructOpt, Debug)]
@@ -41,4 +45,9 @@ pub struct Start {
 #[derive(StructOpt, Debug)]
 pub struct Dhcp {
     pub interface: String,
+}
+
+#[derive(StructOpt, Debug)]
+pub struct Dns {
+    // pub interface: String,
 }
