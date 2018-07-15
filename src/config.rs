@@ -75,6 +75,11 @@ pub struct DnsConfig {
     pub servers: Vec<IpAddr>,
     pub port: u16,
     pub sni: String,
+
+    #[serde(default)]
+    pub records: HashMap<String, Vec<IpAddr>>,
+    #[serde(default)]
+    pub zones: HashMap<String, Vec<IpAddr>>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -124,6 +129,29 @@ mod tests {
     #[test]
     fn test_load_empty() {
         let _config = load("").expect("failed to load config");
+    }
+
+    #[test]
+    fn test_dns_config() {
+        let _config = load(r#"
+        [dns]
+        bind = "127.0.0.1:53"
+
+        servers = ["1.1.1.1",
+                   "1.0.0.1",
+                   "2606:4700:4700::1111",
+                   "2606:4700:4700::1001"]
+        port = 443
+        sni = "cloudflare-dns.com"
+
+        [dns.records]
+        "foo.example.com" = ["192.0.2.10", "2001:DB8::10"]
+        "bar.example.com" = ["192.0.2.20", "2001:DB8::20"]
+
+        [dns.zones]
+        "example.com" = ["192.0.2.2", "2001:DB8::2"]
+        "corp.example.com" = ["192.0.2.3", "2001:DB8::3"]
+        "#).expect("failed to load config");
     }
 
     #[test]

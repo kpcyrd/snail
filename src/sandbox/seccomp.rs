@@ -268,6 +268,8 @@ pub fn dns_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::epoll_create1)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
     ctx.allow_syscall(Syscall::getsockname)?;
+    ctx.allow_syscall(Syscall::bind)?;
+    ctx.allow_syscall(Syscall::ioctl)?;
     ctx.allow_syscall(Syscall::mmap)?; // needed for stage1
     ctx.allow_syscall(Syscall::mprotect)?; // needed for stage1
     ctx.allow_syscall(Syscall::clone)?; // needed for stage1
@@ -279,8 +281,6 @@ pub fn dns_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::sched_getaffinity)?; // needed for stage1
     ctx.allow_syscall(Syscall::capget)?; // needed for stage1
     ctx.allow_syscall(Syscall::getuid)?; // needed for stage1
-    ctx.allow_syscall(Syscall::bind)?; // needed for stage1
-    ctx.allow_syscall(Syscall::ioctl)?; // needed for stage1
     ctx.allow_syscall(Syscall::chroot)?; // needed for stage1
     ctx.allow_syscall(Syscall::chdir)?; // needed for stage1
     ctx.allow_syscall(Syscall::getpid)?; // needed for stage1
@@ -319,6 +319,8 @@ pub fn dns_stage3() -> Result<()> {
     ctx.allow_syscall(Syscall::epoll_create1)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
     ctx.allow_syscall(Syscall::getsockname)?;
+    ctx.allow_syscall(Syscall::bind)?;
+    ctx.allow_syscall(Syscall::ioctl)?;
 
     ctx.load()?;
 

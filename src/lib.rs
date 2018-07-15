@@ -23,6 +23,7 @@ extern crate url;
 extern crate trust_dns_resolver;
 extern crate trust_dns_server;
 extern crate trust_dns_proto;
+extern crate trust_dns;
 extern crate tokio_udp;
 extern crate tokio;
 extern crate mrsc;
