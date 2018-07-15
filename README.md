@@ -53,6 +53,71 @@ the correct group which is specified in /etc/snail/snail.conf.
 snailctl status
 ```
 
+## snailctl decap
+
+The captive portal engine should run automatically as part of snaild, but it's
+also possible to invoke it manually.
+
+To execute the engine in verbose mode, run:
+```
+snailctl decap -v
+```
+
+Some portals also hijack the android captive portal probe, in that case you can
+bypass the captive portal test and execute the scripts directly by running:
+```
+snailctl decap -vf
+```
+
+If you are developing a new script, you can provide the path to that script
+using:
+```
+snailctl decap -v ~/scripts/foo.lua
+```
+
+By default, custom scripts are loaded from `/etc/snail/scripts/*.lua`, but you
+can also add additional folders to `/etc/snail/snail.conf`:
+```
+[scripts.paths."/home/user/snail/scripts"]
+[scripts.paths."/opt/snail/scripts"]
+```
+
+To ensure your script is properly being picked up, run snailctl without any
+arguments:
+```
+snailctl
+```
+
+If you wrote a new script for a captive portal, please submit a pull request.
+
+## snaild dns
+
+snaild contains a dns server that listens for dns queries on localhost and
+forwards them to a dns-over-https recursor. You can also configure your own
+zones that get forwarded to a different dns recursor, or hardcode static dns
+records.
+
+```toml
+[dns]
+bind = "127.0.0.1:53"
+
+# cloudflare
+servers = ["1.1.1.1",
+           "1.0.0.1",
+           "2606:4700:4700::1111",
+           "2606:4700:4700::1001"]
+port = 443
+sni = "cloudflare-dns.com"
+
+[dns.records]
+"foo.example.com" = ["192.0.2.10", "2001:DB8::10"]
+"bar.example.com" = ["192.0.2.20", "2001:DB8::20"]
+
+[dns.zones]
+"example.com" = ["192.0.2.2", "2001:DB8::2"]
+"corp.example.com" = ["192.0.2.3", "2001:DB8::3"]
+```
+
 ## Trivia
 
 The name snailctl is inspired by [Leucochloridium], a parasite that lives
