@@ -153,16 +153,16 @@ fn dns_thread(socket: &str, config: &Config) -> Result<()> {
             .context("sandbox dns_stage1 failed")?;
     }
 
-    let addr = "127.0.0.1:5333".parse()?;
-
     let server = DnsHandler::new(&config)?;
+    // bind before we drop the uid
+    let udp_socket = DnsHandler::bind(&config)?;
 
     if !config.security.danger_disable_seccomp_security {
         sandbox::dns_stage2(&config, &socket)
             .context("sandbox dns_stage2 failed")?;
     }
 
-    server.run(&addr, config)?;
+    server.run(udp_socket, config)?;
 
     Ok(())
 }
@@ -338,6 +338,17 @@ fn run() -> Result<()> {
                         .stdout(Stdio::inherit())
                         .stderr(Stdio::inherit())
                         .spawn()?;
+
+                    if let Some(dns) = &config.dns {
+                        if !dns.standalone {
+                            let _dns_child = Command::new(&myself)
+                                .args(&["dns"])
+                                .stdin(Stdio::null())
+                                .stdout(Stdio::inherit())
+                                .stderr(Stdio::inherit())
+                                .spawn()?;
+                        }
+                    }
 
                     zmq_thread(&socket, decap_child, &mut config)
                 },

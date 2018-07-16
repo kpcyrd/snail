@@ -23,7 +23,7 @@ use mrsc;
 
 use std::io;
 use std::thread;
-use std::net::{SocketAddr, IpAddr};
+use std::net::IpAddr;
 use std::time::{Instant, Duration};
 use std::sync::{Arc, mpsc};
 use std::str::FromStr;
@@ -179,12 +179,20 @@ impl DnsHandler {
         ))
     }
 
-    pub fn run(mut self, addr: &SocketAddr, config: &Config) -> Result<()> {
+    pub fn bind(config: &Config) -> Result<UdpSocket> {
+        let dns_config = match &config.dns {
+            Some(config) => config,
+            _ => bail!("dns is not configured"),
+        };
+
+        let socket = UdpSocket::bind(&dns_config.bind)?;
+        Ok(socket)
+    }
+
+    pub fn run(mut self, socket: UdpSocket, config: &Config) -> Result<()> {
         let mut io_loop = Runtime::new()?;
         let seccomp_signal = self.seccomp_signal.take().unwrap();
         let server = ServerFuture::new(self);
-
-        let socket = UdpSocket::bind(addr)?;
 
         let server_future: Box<Future<Item=(), Error=()> + Send> = Box::new(future::lazy(move || {
             server.register_socket(socket);
