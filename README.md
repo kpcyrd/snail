@@ -53,6 +53,11 @@ the correct group which is specified in /etc/snail/snail.conf.
 snailctl status
 ```
 
+To add yourself to the correct group, run
+```
+usermod -aG snail user
+```
+
 ## snailctl decap
 
 The captive portal engine should run automatically as part of snaild, but it's

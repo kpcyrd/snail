@@ -73,6 +73,10 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::chroot)?; // needed for stage1
     ctx.allow_syscall(Syscall::capget)?; // needed for stage1
     ctx.allow_syscall(Syscall::chdir)?; // needed for stage1
+    ctx.allow_syscall(Syscall::getuid)?; // needed for stage1
+    ctx.allow_syscall(Syscall::setgroups)?; // needed for stage1
+    ctx.allow_syscall(Syscall::setgid)?; // needed for stage1
+    ctx.allow_syscall(Syscall::setuid)?; // needed for stage1
     ctx.allow_syscall(Syscall::seccomp)?; // needed for stage1
 
     ctx.load()?;

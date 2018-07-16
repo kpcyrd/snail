@@ -109,7 +109,12 @@ pub fn decap_stage1() -> Result<()> {
 }
 
 pub fn decap_stage2(config: &Config, socket: &str) -> Result<String> {
+    let user = resolve_uid(&config)?;
+
     let socket = try_chroot(config, CHROOT, socket)?;
+
+    drop_user(user)?;
+
     info!("decap_stage 2/3 enabled");
     Ok(socket)
 }
