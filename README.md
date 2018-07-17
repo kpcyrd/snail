@@ -41,8 +41,10 @@ install -d /etc/snail/scripts
 install -Dm644 contrib/snail.conf -t /etc/snail
 install -Dm644 contrib/snail@.service -t /usr/lib/systemd/system
 install -Dm644 contrib/snail-tmpfiles.conf /usr/lib/tmpfiles.d/snail.conf
+install -Dm644 contrib/snail-sysuser.conf /usr/lib/sysusers.d/snail.conf
 
 systemd-tmpfiles --create
+systemd-sysusers
 systemctl daemon-reload
 systemctl enable --now snail@wlp3s0
 ```
