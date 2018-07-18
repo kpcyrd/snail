@@ -1,5 +1,6 @@
 use toml;
 use users;
+use trust_dns::rr::LowerName;
 
 use errors::Result;
 use ipc;
@@ -79,7 +80,7 @@ pub struct DnsConfig {
     #[serde(default)]
     pub records: HashMap<String, Vec<IpAddr>>,
     #[serde(default)]
-    pub zones: HashMap<String, Vec<IpAddr>>,
+    pub zones: HashMap<LowerName, Vec<IpAddr>>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

@@ -55,10 +55,9 @@ impl DnsHandler {
                                                    config.sni.clone())?;
 
         let mut custom_resolvers = Vec::new();
-        for (k, v) in &config.zones {
-            let zone = Self::to_lower_name(k)?;
+        for (zone, v) in &config.zones {
             let resolver = Self::create_dns_resolver(&v, 53)?;
-            custom_resolvers.push((zone, resolver));
+            custom_resolvers.push((zone.clone(), resolver));
         }
 
         // make sure more specific zones get applied first
@@ -111,7 +110,9 @@ impl DnsHandler {
 
     #[inline]
     fn to_lower_name(name: &str) -> Result<LowerName> {
-        Ok(LowerName::from(Name::from_str(name)?))
+        Name::from_str(name)
+            .map(LowerName::from)
+            .map_err(Error::from)
     }
 
     #[inline]
