@@ -205,6 +205,20 @@ fn run() -> Result<()> {
             let resolver = Resolver::with_udp(&status.dns)?;
             connect::connect(resolver, &connect.host, connect.port)?;
         },
+        Some(SubCommand::Doh(doh)) => {
+            let dns = match &config.dns {
+                Some(config) => config,
+                None => bail!("dns is not configured"),
+            };
+
+            let resolver = Resolver::with_https(&dns.servers,
+                                                dns.port,
+                                                dns.sni.to_string())?;
+
+            for ip in resolver.resolve(&doh.query)? {
+                println!("{}", ip);
+            }
+        },
         Some(SubCommand::BashCompletion) => {
             args::gen_completions::<args::snailctl::Args>("snailctl");
         },

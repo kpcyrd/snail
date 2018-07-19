@@ -46,6 +46,10 @@ pub enum SubCommand {
                 about="Open tcp connection inside target network")]
     Connect(Connect),
     #[structopt(author = "",
+                name="doh",
+                about="Resolve a dns name with dns-over-https")]
+    Doh(Dns),
+    #[structopt(author = "",
                 name="bash-completion",
                 about="Generate bash completion script for the snailctl command")]
     BashCompletion,
@@ -80,8 +84,11 @@ pub struct Status {
 
 #[derive(StructOpt, Debug)]
 pub struct Dns {
+    #[structopt(help="The record you want to query")]
     pub query: String,
-    pub record: Option<String>,
+    #[structopt(default_value="A",
+                help="The query type you want to lookup")]
+    pub record: String,
 }
 
 #[derive(StructOpt, Debug)]

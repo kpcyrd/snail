@@ -11,6 +11,7 @@ use trust_dns_resolver::lookup_ip::LookupIp;
 use trust_dns_resolver::config::{ResolverConfig,
                                  ResolverOpts,
                                  NameServerConfig,
+                                 NameServerConfigGroup,
                                  Protocol};
 
 use std::io;
@@ -39,6 +40,7 @@ impl Resolver {
         }
 
         let mut opts = ResolverOpts::default();
+        opts.use_hosts_file = false;
         opts.timeout = Duration::from_secs(1);
 
         let resolver = tdr::Resolver::new(config, opts)?;
@@ -53,6 +55,29 @@ impl Resolver {
                             .map(|x| SocketAddr::new(x.to_owned(), 53))
                             .collect::<Vec<_>>();
         Resolver::with_udp_addr(&recursors)
+    }
+
+    pub fn with_https(servers: &[IpAddr], port: u16, sni: String) -> Result<Resolver> {
+        let name_servers = NameServerConfigGroup::from_ips_https(
+            servers,
+            port,
+            sni,
+        );
+
+        let resolver_config = ResolverConfig::from_parts(
+            None, // domain
+            vec![], // search
+            name_servers,
+        );
+
+        let mut resolver_opts = ResolverOpts::default();
+        resolver_opts.use_hosts_file = false;
+
+        let resolver = tdr::Resolver::new(resolver_config, resolver_opts)?;
+
+        Ok(Resolver {
+            resolver,
+        })
     }
 
     #[inline]
