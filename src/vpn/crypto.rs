@@ -1,15 +1,13 @@
 use errors::Result;
 
 // use nom;
-use snow;
-use snow::NoiseBuilder;
-use snow::CryptoResolver;
-use snow::params::NoiseParams;
-use snow::params::DHChoice;
+use snow::{self, Builder};
+use snow::resolvers::{CryptoResolver, DefaultResolver};
+use snow::params::{NoiseParams, DHChoice};
 
 
 pub fn gen_key() -> Result<(Vec<u8>, Vec<u8>)> {
-    let resolver = snow::DefaultResolver;
+    let resolver = DefaultResolver;
     let dh = DHChoice::Curve25519;
 
     let mut rng = resolver.resolve_rng().unwrap();
@@ -34,9 +32,9 @@ impl Handshake {
         "Noise_XK_25519_ChaChaPoly_BLAKE2s".parse::<NoiseParams>().expect("noise parameter is invalid")
     }
 
-    fn new<'a>(local_privkey: &'a [u8]) -> NoiseBuilder<'a> {
+    fn new<'a>(local_privkey: &'a [u8]) -> Builder<'a> {
         let params = Self::gen_params();
-        let builder = NoiseBuilder::new(params.clone());
+        let builder = Builder::new(params.clone());
 
         builder
             .local_private_key(&local_privkey)
@@ -104,6 +102,12 @@ pub struct Transport {
 }
 
 impl Transport {
+    pub fn remote_pubkey(&self) -> Result<Vec<u8>> {
+        self.noise.get_remote_static()
+            .map(|p| Vec::from(p))
+            .ok_or(format_err!("remote did not send longterm pubkey"))
+    }
+
     pub fn decrypt(&mut self, cipher: &[u8]) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; 65535];
 

@@ -8,7 +8,7 @@ fn main() {
     env_logger::init();
 
     let (server_pubkey, server_privkey) = crypto::gen_key().unwrap();
-    let (_client_pubkey, client_privkey) = crypto::gen_key().unwrap();
+    let (client_pubkey, client_privkey) = crypto::gen_key().unwrap();
 
     let mut initiator = Handshake::initiator(&server_pubkey, &client_privkey).unwrap();
     let mut responder = Handshake::responder(&server_privkey).unwrap();
@@ -27,6 +27,16 @@ fn main() {
 
     let mut initiator = initiator.transport().expect("initiator.transport");
     let mut responder = responder.transport().expect("responder.transport");
+
+    let remote_pubkey = responder.remote_pubkey().unwrap();
+    if client_pubkey == remote_pubkey {
+        println!("[+] client identity verified");
+    } else {
+        println!("client: {:?}", client_pubkey);
+        println!("remote: {:?}", remote_pubkey);
+
+        panic!("unauthorized client public key");
+    }
 
     let msg = responder.encrypt(b"hello from responder").unwrap();
     println!("encrypted: {:?}", msg);

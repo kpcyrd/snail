@@ -29,14 +29,14 @@ pub fn udp_thread(_state: State) -> Result<()> {
 
     let mut stage = 0;
 
-    use snow::NoiseBuilder;
+    use snow::Builder;
     use snow::params::NoiseParams;
 
     // TODO: consider Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
     let params: NoiseParams = "Noise_XK_25519_ChaChaPoly_BLAKE2s".parse().unwrap();
 
-    let builder: NoiseBuilder = NoiseBuilder::new(params.clone());
-    let static_key = builder.generate_private_key().unwrap();
+    let builder = Builder::new(params.clone());
+    let static_key = builder.generate_keypair().unwrap().private;
 
     let mut noise = builder
         .local_private_key(&static_key)
