@@ -1,22 +1,37 @@
 use errors::Result;
 
-use byteorder::{BigEndian, WriteBytesExt};
-use nom::{IResult, be_u8, be_u64};
+use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
+use nom::IResult;
 
 
 fn header(input: &[u8]) -> IResult<&[u8], Header> {
+    let (remaining, options) = header_options(input)?;
+    if options.handshake {
+        handshake(remaining, options.stage)
+    } else {
+        transport(remaining, options.truncated)
+    }
+}
+
+fn header_options(input: &[u8]) -> IResult<&[u8], HeaderOptions> {
     do_parse!(input,
-        header: switch!(be_u8,
-            0x00 => call!(transport) |
-            0x01 => call!(handshake)
+        options: bits!(tuple!(
+            map!(take_bits!(u8, 1), |x| x > 0), // handshake vs transport
+            take_bits!(u8, 2), // handshake stage
+            take_bits!(u8, 2), // unused
+            take_bits!(u8, 3)) // number of truncated nonce bytes
         ) >>
         ({
-            header
+            HeaderOptions {
+                handshake: options.0,
+                stage: options.1,
+                truncated: options.3,
+            }
         })
     )
 }
 
-fn handshake(input: &[u8]) -> IResult<&[u8], Header> {
+fn handshake(input: &[u8], _stage: u8) -> IResult<&[u8], Header> {
     do_parse!(input,
         ({
             Header::Handshake
@@ -24,10 +39,19 @@ fn handshake(input: &[u8]) -> IResult<&[u8], Header> {
     )
 }
 
-fn transport(input: &[u8]) -> IResult<&[u8], Header> {
+fn transport(input: &[u8], truncated: u8) -> IResult<&[u8], Header> {
     do_parse!(input,
-        nonce: be_u64       >>
+        nonce: take!(8 - truncated)     >>
         ({
+            let truncated = truncated as usize;
+
+            // parse truncated u64 into u64
+            let mut buf = [0u8; 8];
+            for (i, x) in nonce.iter().enumerate() {
+                buf[truncated+i] = *x;
+            }
+            let nonce = (&buf[..]).read_u64::<BigEndian>().unwrap();
+
             Header::Transport(nonce)
         })
     )
@@ -46,6 +70,13 @@ impl Header {
             Header::Transport(nonce) => Packet::make_transport(nonce, bytes),
         }
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct HeaderOptions {
+    handshake: bool,
+    stage: u8,
+    truncated: u8,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -84,17 +115,35 @@ impl Packet {
         }
     }
 
+    #[inline]
+    pub fn pack_nonce<'a>(buf: &'a mut Vec<u8>, nonce: u64) -> (u8, &'a [u8]) {
+        buf.write_u64::<BigEndian>(nonce).unwrap();
+        for x in 0..7 {
+            if buf[x] != 0 {
+                return (x as u8, &buf[x..]);
+            }
+        }
+        return (7, &buf[7..]);
+    }
+
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
 
         match *self {
             Packet::Handshake(ref pkt) => {
-                buf.push(0x01);
+                buf.push(0x80);
                 buf.extend(&pkt.bytes);
             },
             Packet::Transport(ref pkt) => {
-                buf.push(0x00);
-                buf.write_u64::<BigEndian>(pkt.nonce).unwrap();
+                let mut options = 0;
+
+                // compress nonce
+                let mut nonce = Vec::with_capacity(8);
+                let (truncated, nonce) = Self::pack_nonce(&mut nonce, pkt.nonce);
+                options ^= truncated;
+
+                buf.push(options);
+                buf.extend(nonce);
                 buf.extend(&pkt.bytes);
             },
         };
@@ -148,6 +197,30 @@ mod tests {
 
         let pkt = pkt.transport().expect("not a transport packet");
         assert_eq!(pkt.nonce, 0x1122334455667788);
+        assert_eq!(&pkt.bytes, b"ohai\n");
+    }
+
+    #[test]
+    fn test_pkt_transport_short_nonce() {
+        let orig = Packet::make_transport(0xffff, b"ohai\n".to_vec());
+
+        let pkt = packet(&orig.as_bytes()).expect("failed to parse packet");
+        assert_eq!(pkt, orig);
+
+        let pkt = pkt.transport().expect("not a transport packet");
+        assert_eq!(pkt.nonce, 0xffff);
+        assert_eq!(&pkt.bytes, b"ohai\n");
+    }
+
+    #[test]
+    fn test_pkt_transport_zero_nonce() {
+        let orig = Packet::make_transport(0x00, b"ohai\n".to_vec());
+
+        let pkt = packet(&orig.as_bytes()).expect("failed to parse packet");
+        assert_eq!(pkt, orig);
+
+        let pkt = pkt.transport().expect("not a transport packet");
+        assert_eq!(pkt.nonce, 0x00);
         assert_eq!(&pkt.bytes, b"ohai\n");
     }
 }
