@@ -94,6 +94,8 @@ pub struct VpnConfig {
 pub struct VpnServerConfig {
     pub server_pubkey: String,
     pub server_privkey: String,
+
+    pub clients: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

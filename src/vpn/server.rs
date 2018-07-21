@@ -10,8 +10,10 @@ use tun_tap::Iface;
 use pktparse::{ipv4};
 
 use std::thread;
+use std::result;
 use std::sync::{Arc, Mutex};
 use std::net::UdpSocket;
+use std::collections::HashSet;
 
 
 #[derive(Debug, Clone)]
@@ -33,6 +35,9 @@ pub fn udp_thread(_state: State, config: &Config) -> Result<()> {
         .ok_or(format_err!("vpn client not configured"))?;
 
     let socket = UdpSocket::bind("127.0.0.1:7788")?; // TODO
+    let clients = vpn_config.clients.iter()
+        .map(|key| base64::decode(&key))
+        .collect::<result::Result<HashSet<_>, _>>()?;
 
     let mut stage = 0;
 
@@ -62,9 +67,18 @@ pub fn udp_thread(_state: State, config: &Config) -> Result<()> {
             info!("[{}] switching into transport mode", src); // TODO: src missing
             let mut responder = responder.transport()?;
 
-            // TODO: authenticate client
-            let msg = responder.encrypt(b"welcome\n")?;
-            socket.send_to(&msg, &src)?;
+            let remote_key = responder.remote_pubkey()?;
+            if clients.contains(&remote_key) {
+                info!("[{}] client successfully authorized", src);
+                let msg = responder.encrypt(b"welcome")?;
+                socket.send_to(&msg, &src)?;
+            } else {
+                let msg = responder.encrypt(b"rejected")?;
+                socket.send_to(&msg, &src)?;
+                warn!("[{}] client rejected", src);
+                bail!("client not authorized");
+            }
+
             responder2 = responder;
             break;
         } else {
