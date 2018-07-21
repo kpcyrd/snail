@@ -2,9 +2,9 @@ use errors::Result;
 
 use vpn::crypto::{Handshake, Channel};
 use vpn::transport::ClientTransport;
+use vpn::wire::Packet;
 
 use base64;
-// use nom;
 
 
 pub struct ClientHandshake<T: ClientTransport> {
@@ -27,15 +27,16 @@ impl<T: ClientTransport> ClientHandshake<T> {
 
     pub fn send(&mut self) -> Result<()> {
         let msg = self.handshake.take()?;
-        self.transport.send(&msg)?;
+        let pkt = Packet::make_handshake(msg);
+        self.transport.send(&pkt)?;
         Ok(())
     }
 
     pub fn recv(&mut self) -> Result<()> {
-        let mut buf = [0; 1600]; // TODO: adjust size
+        let pkt = self.transport.recv()?;
+        let pkt = pkt.handshake()?;
 
-        let amt = self.transport.recv(&mut buf)?;
-        self.handshake.insert(&mut buf[..amt])?;
+        self.handshake.insert(&pkt.bytes)?;
         Ok(())
     }
 
@@ -62,9 +63,8 @@ pub struct ClientChannel<T: ClientTransport> {
 
 impl<T: ClientTransport> ClientChannel<T> {
     pub fn recv(&mut self) -> Result<Vec<u8>> {
-        let mut encrypted = vec![0u8; 65535];
-        let amt = self.transport.recv(&mut encrypted)?;
-        let msg = self.channel.decrypt(&encrypted[..amt])?;
+        let pkt = self.transport.recv()?;
+        let msg = self.channel.decrypt(&pkt)?;
         Ok(msg)
     }
 

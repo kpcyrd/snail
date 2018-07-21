@@ -39,8 +39,9 @@ extern crate webpki_roots;
 
 extern crate tun_tap;
 extern crate snow;
-// extern crate nom;
 extern crate pktparse;
+extern crate byteorder;
+#[macro_use] extern crate nom;
 
 pub mod errors {
     pub use failure::{Error, ResultExt};

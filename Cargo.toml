@@ -72,8 +72,9 @@ caps = "0.2"
 tun-tap = "0.1.1"
 #snow = "0.1.9"
 snow = { git = "https://github.com/kpcyrd/snow.git", branch="rand" }
-nom = "4.0.0"
 pktparse = "0.3.0"
+byteorder = "1"
+nom = "4.0"
 
 [replace]
 "x25519-dalek:0.2.0" = { git = "https://github.com/kpcyrd/x25519-dalek.git", branch="rand" }

@@ -9,6 +9,7 @@ pub mod crypto;
 pub mod client;
 pub mod server;
 pub mod transport;
+pub mod wire;
 
 
 pub fn open_tun(tun: &str)-> Result<(Arc<Iface>, Arc<Iface>)> {

@@ -1,6 +1,7 @@
 use errors::Result;
 
-// use nom;
+use vpn::wire::Packet;
+
 use snow::{self, Builder};
 use snow::resolvers::{CryptoResolver, DefaultResolver};
 use snow::params::{NoiseParams, DHChoice};
@@ -119,10 +120,12 @@ impl Channel {
             .ok_or(format_err!("remote did not send longterm pubkey"))
     }
 
-    pub fn decrypt(&mut self, cipher: &[u8]) -> Result<Vec<u8>> {
+    pub fn decrypt(&mut self, packet: &Packet) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; 65535];
 
-        let n = match self.noise.read_message(cipher, &mut buf) {
+        let packet = packet.transport()?;
+        self.noise.set_receiving_nonce(packet.nonce)?;
+        let n = match self.noise.read_message(&packet.bytes, &mut buf) {
             Ok(n) => n,
             Err(e) => bail!("failed to read noise: {:?}", e),
         };
@@ -130,18 +133,17 @@ impl Channel {
         Ok(buf[..n].to_vec())
     }
 
-    pub fn encrypt(&mut self, msg: &[u8]) -> Result<Vec<u8>> {
+    pub fn encrypt(&mut self, msg: &[u8]) -> Result<Packet> {
         let mut buf = vec![0u8; 65535];
 
+        let nonce = self.noise.sending_nonce()?;
         let n = match self.noise.write_message(msg, &mut buf) {
             Ok(n) => n,
             Err(e) => bail!("failed to write noise: {:?}", e),
         };
 
-        Ok(buf[..n].to_vec())
+        Ok(Packet::make_transport(nonce, buf[..n].to_vec()))
     }
 
     // TODO: rekey
-    // TODO: set_receiving_nonce
-    // TODO: get_remote_static
 }

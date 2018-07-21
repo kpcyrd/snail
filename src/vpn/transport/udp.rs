@@ -1,5 +1,6 @@
-use errors::{Result, Error};
+use errors::Result;
 use vpn::transport::{ClientTransport, ServerTransport};
+use vpn::wire::{self, Packet};
 
 use std::net::UdpSocket;
 use std::net::SocketAddr;
@@ -22,17 +23,21 @@ impl UdpClient {
 }
 
 impl ClientTransport for UdpClient {
-    fn recv(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let n = self.socket.recv(buf)?;
+    fn recv(&mut self) -> Result<Packet> {
+        let mut buf = [0; 1600]; // TODO: adjust size
+
+        let n = self.socket.recv(&mut buf)?;
         let buf = &buf[..n];
+
         debug!("recv(udp): {:?}", buf);
-        Ok(n)
+        wire::packet(&buf)
     }
 
-    fn send(&mut self, buf: &[u8]) -> Result<usize> {
+    fn send(&mut self, pkt: &Packet) -> Result<()> {
+        let buf = pkt.as_bytes();
         debug!("send(udp): {:?}", buf);
-        self.socket.send(buf)
-            .map_err(Error::from)
+        self.socket.send(&buf)?;
+        Ok(())
     }
 }
 
@@ -51,16 +56,21 @@ impl UdpServer {
 }
 
 impl ServerTransport for UdpServer {
-    fn recv_from(&mut self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-        let (n, src) = self.socket.recv_from(buf)?;
+    fn recv_from(&mut self) -> Result<(Packet, SocketAddr)> {
+        let mut buf = [0; 1600]; // TODO: adjust size
+
+        let (n, src) = self.socket.recv_from(&mut buf)?;
         let buf = &buf[..n];
         debug!("[{}] recv(udp): {:?}", src, buf);
-        Ok((n, src))
+
+        let pkt = wire::packet(&buf)?;
+        Ok((pkt, src))
     }
 
-    fn send_to(&mut self, buf: &[u8], dst: &SocketAddr) -> Result<usize> {
+    fn send_to(&mut self, pkt: &Packet, dst: &SocketAddr) -> Result<()> {
+        let buf = pkt.as_bytes();
         debug!("[{}] send(udp): {:?}", dst, buf);
-        self.socket.send_to(buf, dst)
-            .map_err(Error::from)
+        self.socket.send_to(&buf, dst)?;
+        Ok(())
     }
 }
