@@ -25,8 +25,8 @@ fn main() {
     let msg = initiator.take().unwrap();
     responder.insert(&msg).unwrap();
 
-    let mut initiator = initiator.transport().expect("initiator.transport");
-    let mut responder = responder.transport().expect("responder.transport");
+    let mut initiator = initiator.channel().expect("initiator.transport");
+    let mut responder = responder.channel().expect("responder.transport");
 
     let remote_pubkey = responder.remote_pubkey().unwrap();
     if client_pubkey == remote_pubkey {

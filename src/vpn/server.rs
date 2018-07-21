@@ -3,7 +3,8 @@ use errors::Result;
 use args::snaild::Vpnd;
 use config::Config;
 use vpn;
-use vpn::crypto::Handshake;
+use vpn::crypto::ServerHandshake;
+use vpn::transport::udp::UdpServer;
 
 use base64;
 use tun_tap::Iface;
@@ -12,7 +13,6 @@ use pktparse::{ipv4};
 use std::thread;
 use std::result;
 use std::sync::{Arc, Mutex};
-use std::net::UdpSocket;
 use std::collections::HashSet;
 
 
@@ -34,47 +34,32 @@ pub fn udp_thread(_state: State, config: &Config) -> Result<()> {
         .ok_or(format_err!("vpn not configured"))?.server.as_ref()
         .ok_or(format_err!("vpn client not configured"))?;
 
-    let socket = UdpSocket::bind("127.0.0.1:7788")?; // TODO
     let clients = vpn_config.clients.iter()
         .map(|key| base64::decode(&key))
         .collect::<result::Result<HashSet<_>, _>>()?;
 
-    let mut stage = 0;
-
-    let server_privkey = base64::decode(&vpn_config.server_privkey)?;
-    let mut responder = Handshake::responder(&server_privkey)?;
-
-    let mut buf = [0; 1600]; // TODO: adjust size
+    let socket = UdpServer::bind("127.0.0.1:7788")?; // TODO
+    let mut responder = ServerHandshake::responder(socket, &vpn_config.server_privkey)?;
 
     let responder2;
 
     // TODO: this should be one loop
     loop {
-        let (amt, src) = socket.recv_from(&mut buf)?;
+        let src = match responder.recv_from() {
+            Ok(src) => src,
+            Err(_) => continue,
+        };
 
-        let buf = &mut buf[..amt];
-        info!("[{}] recv(udp): {:?}", src, buf);
-
-        // do the handshake
-        if let Err(e) = responder.insert(&buf) {
-            warn!("[{}] client sent bad data during handshake: {:?}", src, e);
-            continue;
-        }
-
-        stage += 1;
-
-        if stage == 2 {
+        if responder.is_handshake_finished() {
             info!("[{}] switching into transport mode", src); // TODO: src missing
-            let mut responder = responder.transport()?;
+            let mut responder = responder.channel()?;
 
             let remote_key = responder.remote_pubkey()?;
             if clients.contains(&remote_key) {
                 info!("[{}] client successfully authorized", src);
-                let msg = responder.encrypt(b"welcome")?;
-                socket.send_to(&msg, &src)?;
+                responder.send_to(b"welcome", &src)?;
             } else {
-                let msg = responder.encrypt(b"rejected")?;
-                socket.send_to(&msg, &src)?;
+                responder.send_to(b"rejected", &src)?;
                 warn!("[{}] client rejected", src);
                 bail!("client not authorized");
             }
@@ -82,25 +67,17 @@ pub fn udp_thread(_state: State, config: &Config) -> Result<()> {
             responder2 = responder;
             break;
         } else {
-            let msg = responder.take()?;
-            socket.send_to(&msg, &src)?;
+            responder.send_to(&src)?;
         }
     }
 
     let mut responder = responder2;
 
     loop {
-        let (amt, src) = socket.recv_from(&mut buf)?;
-
-        let buf = &mut buf[..amt];
-        info!("[{}] recv(udp): {:?}", src, buf);
-
-        let mut msg = responder.decrypt(&buf)?;
+        let (mut msg, src) = responder.recv_from()?;
         println!("{:?}", String::from_utf8(msg.clone()));
         msg.reverse();
-
-        let msg = responder.encrypt(&msg)?;
-        socket.send_to(&msg, &src)?;
+        responder.send_to(&msg, &src)?;
     }
 
     // Ok(())

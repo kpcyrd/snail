@@ -5,6 +5,11 @@ use snow::{self, Builder};
 use snow::resolvers::{CryptoResolver, DefaultResolver};
 use snow::params::{NoiseParams, DHChoice};
 
+pub mod client;
+pub use self::client::ClientHandshake;
+pub mod server;
+pub use self::server::ServerHandshake;
+
 
 pub fn gen_key() -> Result<(Vec<u8>, Vec<u8>)> {
     let resolver = DefaultResolver;
@@ -88,9 +93,14 @@ impl Handshake {
         Ok(buf[..n].to_vec())
     }
 
-    pub fn transport(self) -> Result<Transport> {
+    #[inline]
+    pub fn is_handshake_finished(&self) -> bool {
+        self.noise.is_handshake_finished()
+    }
+
+    pub fn channel(self) -> Result<Channel> {
         match self.noise.into_transport_mode() {
-            Ok(noise) => Ok(Transport {
+            Ok(noise) => Ok(Channel {
                 noise,
             }),
             Err(e) => bail!("could not switch into transport mode: {:?}", e),
@@ -98,11 +108,11 @@ impl Handshake {
     }
 }
 
-pub struct Transport {
+pub struct Channel {
     noise: snow::Session,
 }
 
-impl Transport {
+impl Channel {
     pub fn remote_pubkey(&self) -> Result<Vec<u8>> {
         self.noise.get_remote_static()
             .map(|p| Vec::from(p))

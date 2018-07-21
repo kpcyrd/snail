@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub mod crypto;
 pub mod client;
 pub mod server;
+pub mod transport;
 
 
 pub fn open_tun(tun: &str)-> Result<(Arc<Iface>, Arc<Iface>)> {
