@@ -29,6 +29,7 @@ pub struct Handshake {
 impl Handshake {
     fn gen_params() -> NoiseParams {
         // TODO: consider using Noise_XX if there are advantages
+        // TODO: consider using a +psk mode for DoS protection (if needed)
         "Noise_XK_25519_ChaChaPoly_BLAKE2s".parse::<NoiseParams>().expect("noise parameter is invalid")
     }
 

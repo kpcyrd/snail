@@ -6,6 +6,7 @@ extern crate env_logger;
 #[macro_use] extern crate failure;
 extern crate tempfile;
 extern crate serde_json;
+extern crate base64;
 
 use structopt::StructOpt;
 
@@ -368,11 +369,16 @@ fn run() -> Result<()> {
                     dns_thread(&socket, &config)
                 },
                 Some(SubCommand::Vpnd(args)) => {
-                    vpn::server::run(args)
+                    vpn::server::run(args, &config)
                 },
                 Some(SubCommand::Vpn(args)) => {
-                    println!("vpn: {:?}", args);
-                    unimplemented!()
+                    vpn::client::run(args, &config)
+                },
+                Some(SubCommand::VpnKeyGen(_args)) => {
+                    let (pubkey, privkey) = vpn::crypto::gen_key()?;
+                    println!("pubkey = \"{}\"", base64::encode(&pubkey));
+                    println!("privkey = \"{}\"", base64::encode(&privkey));
+                    Ok(())
                 },
                 None => {
                     error!("dhcp event expected but not found");

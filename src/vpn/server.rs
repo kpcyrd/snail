@@ -1,8 +1,11 @@
 use errors::Result;
 
 use args::snaild::Vpnd;
+use config::Config;
 use vpn;
+use vpn::crypto::Handshake;
 
+use base64;
 use tun_tap::Iface;
 use pktparse::{ipv4};
 
@@ -24,53 +27,66 @@ impl State {
     }
 }
 
-pub fn udp_thread(_state: State) -> Result<()> {
+pub fn udp_thread(_state: State, config: &Config) -> Result<()> {
+    let vpn_config = config.vpn.as_ref()
+        .ok_or(format_err!("vpn not configured"))?.server.as_ref()
+        .ok_or(format_err!("vpn client not configured"))?;
+
     let socket = UdpSocket::bind("127.0.0.1:7788")?; // TODO
 
     let mut stage = 0;
 
-    use snow::Builder;
-    use snow::params::NoiseParams;
-
-    // TODO: consider Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
-    let params: NoiseParams = "Noise_XK_25519_ChaChaPoly_BLAKE2s".parse().unwrap();
-
-    let builder = Builder::new(params.clone());
-    let static_key = builder.generate_keypair().unwrap().private;
-
-    let mut noise = builder
-        .local_private_key(&static_key)
-        .psk(3, b"fidget spinner fucking rule")
-        .build_responder().unwrap();
+    let server_privkey = base64::decode(&vpn_config.server_privkey)?;
+    let mut responder = Handshake::responder(&server_privkey)?;
 
     let mut buf = [0; 1600]; // TODO: adjust size
-    let mut buf2 = [0; 1600]; // TODO: rename, this is used for noise
+
+    let responder2;
+
+    // TODO: this should be one loop
     loop {
         let (amt, src) = socket.recv_from(&mut buf)?;
 
         let buf = &mut buf[..amt];
-        info!("recv(udp, {}): {:?}", src, buf);
+        info!("[{}] recv(udp): {:?}", src, buf);
 
-        if stage == 0 {
-            // <- e
-            noise.read_message(&buf, &mut buf2).unwrap();
-
-            // -> e, ee, s, es
-            let len = noise.write_message(&[0u8; 0], &mut buf2).unwrap();
-            socket.send_to(&buf2[..len], &src)?;
-
-            stage = 1;
-        } else if stage == 1 {
-            // <- s, se
-            noise.read_message(&buf, &mut buf2).unwrap();
-
-            // Transition the state machine into transport mode now that the handshake is complete.
-            // let mut _noise = noise.into_transport_mode().unwrap();
+        // do the handshake
+        if let Err(e) = responder.insert(&buf) {
+            warn!("[{}] client sent bad data during handshake: {:?}", src, e);
+            continue;
         }
 
+        stage += 1;
 
-        // buf.reverse();
-        // socket.send_to(buf, &src)?;
+        if stage == 2 {
+            info!("[{}] switching into transport mode", src); // TODO: src missing
+            let mut responder = responder.transport()?;
+
+            // TODO: authenticate client
+            let msg = responder.encrypt(b"welcome\n")?;
+            socket.send_to(&msg, &src)?;
+            responder2 = responder;
+            break;
+        } else {
+            let msg = responder.take()?;
+            socket.send_to(&msg, &src)?;
+        }
+    }
+
+    let mut responder = responder2;
+
+    loop {
+        let (amt, src) = socket.recv_from(&mut buf)?;
+
+        let buf = &mut buf[..amt];
+        info!("[{}] recv(udp): {:?}", src, buf);
+
+        let mut msg = responder.decrypt(&buf)?;
+        println!("{:?}", String::from_utf8(msg.clone()));
+        msg.reverse();
+
+        let msg = responder.encrypt(&msg)?;
+        socket.send_to(&msg, &src)?;
     }
 
     // Ok(())
@@ -111,13 +127,14 @@ debug!("recv(tap): {:?}", &buffer[4..n]);
     Ok(())
 }
 
-pub fn run(args: Vpnd) -> Result<()> {
+pub fn run(args: Vpnd, config: &Config) -> Result<()> {
     let state = State::new();
 
     let t1 = {
         let state = state.clone();
+        let config = config.to_owned();
         thread::spawn(move || {
-            udp_thread(state)
+            udp_thread(state, &config)
                 .expect("vpn udp thread failed");
         })
     };

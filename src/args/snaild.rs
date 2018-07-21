@@ -43,6 +43,10 @@ pub enum SubCommand {
                 name="vpn",
                 about="Start vpn client daemon")]
     Vpn(Vpn),
+    #[structopt(author = "",
+                name="vpn-keygen",
+                about="Generate a keypair for vpn")]
+    VpnKeyGen(VpnKeyGen),
 }
 
 #[derive(StructOpt, Debug)]
@@ -67,4 +71,8 @@ pub struct Vpnd {
 
 #[derive(StructOpt, Debug)]
 pub struct Vpn {
+}
+
+#[derive(StructOpt, Debug)]
+pub struct VpnKeyGen {
 }

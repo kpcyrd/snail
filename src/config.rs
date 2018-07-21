@@ -12,18 +12,19 @@ use std::collections::HashMap;
 
 pub const PATH: &str = "/etc/snail/snail.conf";
 
-#[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Default, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub daemon: DaemonConfig,
     #[serde(default)]
     pub security: SecurityConfig,
     pub dns: Option<DnsConfig>,
+    pub vpn: Option<VpnConfig>,
     #[serde(default)]
     pub scripts: ScriptConfig,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct DaemonConfig {
     #[serde(default="default_socket")]
     pub socket: String,
@@ -55,7 +56,7 @@ impl DaemonConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Default, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     pub user: Option<String>,
     #[serde(default)]
@@ -66,7 +67,7 @@ pub struct SecurityConfig {
     pub danger_disable_seccomp_security: bool,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct DnsConfig {
     #[serde(default)]
     pub standalone: bool,
@@ -83,7 +84,25 @@ pub struct DnsConfig {
     pub zones: HashMap<LowerName, Vec<IpAddr>>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Default, Clone, Serialize, Deserialize)]
+pub struct VpnConfig {
+    pub server: Option<VpnServerConfig>,
+    pub client: Option<VpnClientConfig>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct VpnServerConfig {
+    pub server_pubkey: String,
+    pub server_privkey: String,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct VpnClientConfig {
+    pub server_pubkey: String,
+    pub client_privkey: String,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ScriptConfig {
     pub paths: HashMap<String, ScriptFolder>,
     #[serde(default="default_agent")]
@@ -99,7 +118,7 @@ impl Default for ScriptConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Default, Clone, Serialize, Deserialize)]
 pub struct ScriptFolder {
 }
 
