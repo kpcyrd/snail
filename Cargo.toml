@@ -45,30 +45,29 @@ users = "0.7.0"
 tempfile = "3.0.2"
 url = "1.7"
 
-trust-dns-resolver = { git = "https://github.com/bluejekyll/trust-dns.git", features = ["dns-over-https"] }
-trust-dns-server = { git = "https://github.com/bluejekyll/trust-dns.git", features = [], default_features=false }
-trust-dns-proto = { git = "https://github.com/bluejekyll/trust-dns.git" }
-trust-dns = { git = "https://github.com/bluejekyll/trust-dns.git", features=["serde-config"] }
+trust-dns-resolver = { version = "0.10.0-alpha.1", features = ["dns-over-https"] }
+trust-dns-server = { version = "0.15.0-alpha.1", features = [], default_features=false }
+trust-dns-proto = { version = "0.5.0-alpha.1" }
+trust-dns = { version = "0.15.0-alpha.1", features=["serde-config"] }
 tokio-udp = "0.1.1"
 tokio = "0.1.1"
 mrsc = "0.3.1"
 
 hyper = "0.12"
 http = "0.1.5"
-hyper-rustls = "0.13"
-rustls = "0.12"
+hyper-rustls = "0.14"
+rustls = "0.13"
 tokio-core = "0.1.17"
 futures = "0.1"
-ct-logs = "0.3"
+ct-logs = "0.4"
 webpki = "0.18.1"
-webpki-roots = "0.14"
+webpki-roots = "0.15"
 
 nix = "0.11"
 zmq = "0.8.2"
-#syscallz = "0.6"
-syscallz = { git = "https://github.com/kpcyrd/syscallz-rs.git" }
+syscallz = "0.7"
 caps = "0.2"
 
 [dev-dependencies]
 pseudo = "0.1.0"
-boxxy = "0.6.0"
+boxxy = "0.7.0"
