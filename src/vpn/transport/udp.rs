@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
 
 
+#[derive(Debug)]
 pub struct UdpClient {
     socket: UdpSocket,
 }
@@ -23,7 +24,7 @@ impl UdpClient {
 }
 
 impl ClientTransport for UdpClient {
-    fn recv(&mut self) -> Result<Packet> {
+    fn recv(&self) -> Result<Packet> {
         let mut buf = [0; 1600]; // TODO: adjust size
 
         let n = self.socket.recv(&mut buf)?;
@@ -33,7 +34,7 @@ impl ClientTransport for UdpClient {
         wire::packet(&buf)
     }
 
-    fn send(&mut self, pkt: &Packet) -> Result<()> {
+    fn send(&self, pkt: &Packet) -> Result<()> {
         let buf = pkt.as_bytes();
         debug!("send(udp): {:?}", buf);
         self.socket.send(&buf)?;
@@ -41,6 +42,7 @@ impl ClientTransport for UdpClient {
     }
 }
 
+#[derive(Debug)]
 pub struct UdpServer {
     socket: UdpSocket,
 }
@@ -56,7 +58,7 @@ impl UdpServer {
 }
 
 impl ServerTransport for UdpServer {
-    fn recv_from(&mut self) -> Result<(Packet, SocketAddr)> {
+    fn recv_from(&self) -> Result<(Packet, SocketAddr)> {
         let mut buf = [0; 1600]; // TODO: adjust size
 
         let (n, src) = self.socket.recv_from(&mut buf)?;
@@ -67,7 +69,7 @@ impl ServerTransport for UdpServer {
         Ok((pkt, src))
     }
 
-    fn send_to(&mut self, pkt: &Packet, dst: &SocketAddr) -> Result<()> {
+    fn send_to(&self, pkt: &Packet, dst: &SocketAddr) -> Result<()> {
         let buf = pkt.as_bytes();
         debug!("[{}] send(udp): {:?}", dst, buf);
         self.socket.send_to(&buf, dst)?;

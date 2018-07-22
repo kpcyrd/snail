@@ -2,11 +2,14 @@ use errors::Result;
 
 use args::snaild::Vpn;
 use config::Config;
+use vpn::Hello;
 use vpn::crypto::ClientHandshake;
 use vpn::transport::udp::UdpClient;
 
+use serde_json;
 
-pub fn run(_args: Vpn, config: &Config) -> Result<()> {
+
+pub fn udp_thread(_args: Vpn, config: &Config) -> Result<()> {
     let vpn_config = config.vpn.as_ref()
         .ok_or(format_err!("vpn not configured"))?.client.as_ref()
         .ok_or(format_err!("vpn client not configured"))?;
@@ -28,7 +31,17 @@ pub fn run(_args: Vpn, config: &Config) -> Result<()> {
     let mut initiator = initiator.channel()?;
 
     let msg = initiator.recv()?;
-    info!("server said: {:?}", String::from_utf8(msg)?);
+
+    let msg = serde_json::from_slice::<Hello>(&msg)?;
+    debug!("server said: {:?}", msg);
+    match msg {
+        Hello::Welcome(settings) => {
+            info!("server accepted session and sent settings: {:?}", settings);
+        },
+        Hello::Rejected(err) => {
+            bail!("server rejected us: {:?}", err);
+        },
+    }
 
     use std::io::{self, Read};
 
@@ -49,4 +62,8 @@ pub fn run(_args: Vpn, config: &Config) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn run(_args: Vpn, config: &Config) -> Result<()> {
+    udp_thread(_args, config)
 }

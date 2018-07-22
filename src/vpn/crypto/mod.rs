@@ -28,6 +28,13 @@ pub fn gen_key() -> Result<(Vec<u8>, Vec<u8>)> {
     Ok((public, private))
 }
 
+#[derive(Debug)]
+pub enum Session {
+    Handshake(Handshake),
+    Channel(Channel),
+}
+
+#[derive(Debug)]
 pub struct Handshake {
     noise: snow::Session,
 }
@@ -94,6 +101,12 @@ impl Handshake {
         Ok(buf[..n].to_vec())
     }
 
+    pub fn take_packet(&mut self) -> Result<Packet> {
+        let pkt = self.take()?;
+        let pkt = Packet::make_handshake(pkt);
+        Ok(pkt)
+    }
+
     #[inline]
     pub fn is_handshake_finished(&self) -> bool {
         self.noise.is_handshake_finished()
@@ -109,6 +122,7 @@ impl Handshake {
     }
 }
 
+#[derive(Debug)]
 pub struct Channel {
     noise: snow::Session,
 }

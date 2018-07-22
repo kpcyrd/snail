@@ -6,7 +6,7 @@ use errors::Result;
 use ipc;
 
 use std::fs;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::collections::HashMap;
 
 
@@ -94,6 +94,9 @@ pub struct VpnConfig {
 pub struct VpnServerConfig {
     pub server_pubkey: String,
     pub server_privkey: String,
+
+    pub range_start: Ipv4Addr,
+    pub range_end: Ipv4Addr,
 
     pub clients: Vec<String>,
 }
