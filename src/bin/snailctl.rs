@@ -46,7 +46,7 @@ fn run() -> Result<()> {
     let config = config::read_from(config::PATH)
                     .context("failed to load config")?;
     debug!("config: {:?}", config);
-    let socket = args.socket.unwrap_or(config.daemon.socket.clone());
+    let mut socket = args.socket.unwrap_or(config.daemon.socket.clone());
 
     match args.subcommand {
         Some(SubCommand::Scan(scan)) => {
@@ -89,19 +89,16 @@ fn run() -> Result<()> {
             }
         },
         Some(SubCommand::Decap(decap)) => {
-            if !config.danger_disable_seccomp_security {
+            if !config.security.danger_disable_seccomp_security {
                 sandbox::decap_stage1()?;
             }
 
             let mut loader = Loader::new();
             loader.load_all_scripts(&config)?;
 
-            /*
-            // TODO: we can't call sandbox::decap_stage2 because we might not be able to chroot
-            if !config.danger_disable_seccomp_security {
-                sandbox::decap_stage2()?;
+            if !config.security.danger_disable_seccomp_security {
+                socket = sandbox::decap_stage2(&config, &socket)?;
             }
-            */
 
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
@@ -115,7 +112,7 @@ fn run() -> Result<()> {
                 decap.dns
             };
 
-            if !config.danger_disable_seccomp_security {
+            if !config.security.danger_disable_seccomp_security {
                 sandbox::decap_stage3()?;
             }
 
@@ -207,6 +204,20 @@ fn run() -> Result<()> {
 
             let resolver = Resolver::with_udp(&status.dns)?;
             connect::connect(resolver, &connect.host, connect.port)?;
+        },
+        Some(SubCommand::Doh(doh)) => {
+            let dns = match &config.dns {
+                Some(config) => config,
+                None => bail!("dns is not configured"),
+            };
+
+            let resolver = Resolver::with_https(&dns.servers,
+                                                dns.port,
+                                                dns.sni.to_string())?;
+
+            for ip in resolver.resolve(&doh.query)? {
+                println!("{}", ip);
+            }
         },
         Some(SubCommand::BashCompletion) => {
             args::gen_completions::<args::snailctl::Args>("snailctl");

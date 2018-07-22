@@ -15,6 +15,7 @@ use snail::decap;
 use snail::dhcp;
 use snail::errors::{Result, ResultExt};
 use snail::ipc::{Server, Client, CtlRequest, CtlReply};
+use snail::recursor::DnsHandler;
 use snail::sandbox;
 use snail::scripts::Loader;
 use snail::wifi::NetworkStatus;
@@ -100,7 +101,7 @@ fn decap_thread_loop(loader: &Loader, status: &mut Option<NetworkStatus>, msg: N
 }
 
 fn decap_thread(socket: &str, config: &Config) -> Result<()> {
-    if !config.danger_disable_seccomp_security {
+    if !config.security.danger_disable_seccomp_security {
         sandbox::decap_stage1()
             .context("sandbox decap_stage1 failed")?;
     }
@@ -113,18 +114,16 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
     let mut loader = Loader::new();
     loader.load_all_scripts(config)?;
 
-    if !config.danger_disable_seccomp_security {
-        sandbox::decap_stage2()
+    if !config.security.danger_disable_seccomp_security {
+        socket = sandbox::decap_stage2(&config, &socket)
             .context("sandbox decap_stage2 failed")?;
-        // after the chroot, update socket path
-        socket = sandbox::chroot_socket_path(&socket, sandbox::CHROOT)?;
     }
 
     let mut client = Client::connect(&socket)?;
     // ensure the connection is fully setup
     client.ping()?;
 
-    if !config.danger_disable_seccomp_security {
+    if !config.security.danger_disable_seccomp_security {
         sandbox::decap_stage3()
             .context("sandbox decap_stage3 failed")?;
     }
@@ -148,6 +147,26 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
     Ok(())
 }
 
+fn dns_thread(socket: &str, config: &Config) -> Result<()> {
+    if !config.security.danger_disable_seccomp_security {
+        sandbox::dns_stage1()
+            .context("sandbox dns_stage1 failed")?;
+    }
+
+    let server = DnsHandler::new(&config)?;
+    // bind before we drop the uid
+    let udp_socket = DnsHandler::bind(&config)?;
+
+    if !config.security.danger_disable_seccomp_security {
+        sandbox::dns_stage2(&config, &socket)
+            .context("sandbox dns_stage2 failed")?;
+    }
+
+    server.run(udp_socket, config)?;
+
+    Ok(())
+}
+
 fn send_to_child(child: &mut Child, status: NetworkStatus) -> Result<()> {
     if let Some(stdin) = &mut child.stdin {
         debug!("sending to child: {:?}", status);
@@ -163,7 +182,7 @@ fn send_to_child(child: &mut Child, status: NetworkStatus) -> Result<()> {
 }
 
 fn zmq_thread(socket: &str, mut decap: Child, config: &mut Config) -> Result<()> {
-    if !config.danger_disable_seccomp_security {
+    if !config.security.danger_disable_seccomp_security {
         sandbox::zmq_stage1()
             .context("sandbox zmq_stage1 failed")?;
     }
@@ -174,7 +193,7 @@ fn zmq_thread(socket: &str, mut decap: Child, config: &mut Config) -> Result<()>
     // resolve gid before running chroot
     config.daemon.resolve_gid()?;
 
-    if !config.danger_disable_seccomp_security {
+    if !config.security.danger_disable_seccomp_security {
         sandbox::zmq_stage2()
             .context("sandbox zmq_stage2 failed")?;
         // after the chroot, update socket path
@@ -183,7 +202,7 @@ fn zmq_thread(socket: &str, mut decap: Child, config: &mut Config) -> Result<()>
 
     let mut server = Server::bind(&socket, config)?;
 
-    if !config.danger_disable_seccomp_security {
+    if !config.security.danger_disable_seccomp_security {
         sandbox::zmq_stage3()
             .context("sandbox zmq_stage3 failed")?;
     }
@@ -320,6 +339,17 @@ fn run() -> Result<()> {
                         .stderr(Stdio::inherit())
                         .spawn()?;
 
+                    if let Some(dns) = &config.dns {
+                        if !dns.standalone {
+                            let _dns_child = Command::new(&myself)
+                                .args(&["dns"])
+                                .stdin(Stdio::null())
+                                .stdout(Stdio::inherit())
+                                .stderr(Stdio::inherit())
+                                .spawn()?;
+                        }
+                    }
+
                     zmq_thread(&socket, decap_child, &mut config)
                 },
                 Some(SubCommand::Dhcp(args)) => {
@@ -332,6 +362,9 @@ fn run() -> Result<()> {
                 },
                 Some(SubCommand::Decap) => {
                     decap_thread(&socket, &config)
+                },
+                Some(SubCommand::Dns(_args)) => {
+                    dns_thread(&socket, &config)
                 },
                 None => {
                     error!("dhcp event expected but not found");

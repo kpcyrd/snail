@@ -1,9 +1,10 @@
+#![recursion_limit = "128"]
+
 #![warn(unused_extern_crates)]
 extern crate hlua_badtouch as hlua;
 #[macro_use] extern crate structopt;
 #[macro_use] extern crate log;
 #[macro_use] extern crate failure;
-extern crate trust_dns_resolver;
 extern crate kuchiki;
 extern crate regex;
 extern crate nix;
@@ -16,7 +17,16 @@ extern crate serde_urlencoded;
 extern crate toml;
 extern crate users;
 extern crate syscallz;
+extern crate caps;
 extern crate url;
+
+extern crate trust_dns_resolver;
+extern crate trust_dns_server;
+extern crate trust_dns_proto;
+extern crate trust_dns;
+extern crate tokio_udp;
+extern crate tokio;
+extern crate mrsc;
 
 extern crate hyper;
 extern crate http;
@@ -42,6 +52,7 @@ pub mod dns;
 pub mod html;
 pub mod json;
 pub mod ipc;
+pub mod recursor;
 pub mod runtime;
 pub mod sandbox;
 pub mod scripts;
