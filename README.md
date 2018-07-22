@@ -125,6 +125,54 @@ sni = "cloudflare-dns.com"
 "corp.example.com" = ["192.0.2.3", "2001:DB8::3"]
 ```
 
+## snaild vpn
+
+:fire::fire::fire: **Highly experimental, use at your own risk** :fire::fire::fire:
+
+snaild contains a vpn server and client that can be used to setup an encrypted
+tunnel to a remote server. It features forward secrecy, identity hiding for the
+client and is going to support various transport channels in the future to
+evade egress firewalls.
+
+The encrypted tunnel is setup using the noise protocol with
+`Noise_XK_25519_ChaChaPoly_BLAKE2s`. Unlike some traditional vpn clients, we do
+not leak any metadata during the handshake.
+
+To setup the server, run `snaild vpn-keygen` to generate a keypair for the
+server. You also need to specify a range for the client ip pool and list the
+public keys of all clients that are authorized to connect to the server.
+
+```toml
+[vpn.server]
+server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
+server_privkey = "a0zxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQg5o="
+range_start = "192.168.100.5"
+range_end = "192.168.100.200"
+clients = [
+    "cn66xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxaXY=",
+]
+# TODO: some options are missing
+```
+
+Next, use `snaild vpn-keygen` again and generate a key for the client. Copy the
+private key you generated into the client section together with the public key
+you generated for the server.
+
+```toml
+[vpn.client]
+server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
+client_privkey = "te4Pxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4Qx8="
+# TODO: some options are missing
+```
+
+Starting the vpn on both the server and client should give you an encrypted
+tunnel between both:
+
+```
+server# snaild vpnd snail0
+client# snaild vpn
+```
+
 ## Trivia
 
 The name snailctl is inspired by [Leucochloridium], a parasite that lives
