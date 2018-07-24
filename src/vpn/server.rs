@@ -1,7 +1,7 @@
 use errors::{Result, Error, ResultExt};
 
 use args::snaild::Vpnd;
-use config::Config;
+use config::{Config, VpnServerConfig};
 use vpn::{self, Hello};
 use vpn::crypto::{Handshake, Channel};
 use vpn::transport::ServerTransport;
@@ -65,8 +65,8 @@ pub struct Server {
     tun: Arc<Iface>,
     clients: HashMap<SocketAddr, Session>,
     leases: HashMap<Ipv4Addr, SocketAddr>,
-    range_start: Ipv4Addr,
-    range_end: Ipv4Addr,
+    pool_start: Ipv4Addr,
+    pool_end: Ipv4Addr,
     authorized: HashSet<Vec<u8>>,
     privkey: Vec<u8>,
 }
@@ -75,8 +75,8 @@ impl Server {
     pub fn new(socket: Arc<UdpServer>,
                tun: Arc<Iface>,
                server_privkey: &str,
-               range_start: Ipv4Addr,
-               range_end: Ipv4Addr,
+               pool_start: Ipv4Addr,
+               pool_end: Ipv4Addr,
                authorized: &[String]) -> Result<Server> {
         let server_privkey = base64::decode(&server_privkey)?;
 
@@ -89,8 +89,8 @@ impl Server {
             tun,
             clients: HashMap::new(),
             leases: HashMap::new(),
-            range_start,
-            range_end,
+            pool_start,
+            pool_end,
             authorized,
             privkey: server_privkey,
         })
@@ -114,8 +114,8 @@ impl Server {
     }
 
     pub fn allocate_ip(&mut self, remote: &SocketAddr) -> Result<Ipv4Addr> {
-        let start = u32::from(self.range_start);
-        let end = u32::from(self.range_end);
+        let start = u32::from(self.pool_start);
+        let end = u32::from(self.pool_end);
 
         // check if we have spare IPs left
         if self.leases.len() >= (end - start) as usize {
@@ -277,15 +277,11 @@ pub fn udp_thread(tx: mpsc::Sender<Event>, socket: Arc<UdpServer>) -> Result<()>
 pub fn vpn_thread(rx: mpsc::Receiver<Event>,
                   socket: Arc<UdpServer>,
                   tun: Arc<Iface>,
-                  config: &Config) -> Result<()> {
-    let vpn_config = config.vpn.as_ref()
-        .ok_or(format_err!("vpn not configured"))?.server.as_ref()
-        .ok_or(format_err!("vpn server not configured"))?;
-
+                  vpn_config: &VpnServerConfig) -> Result<()> {
     let mut server = Server::new(socket, tun,
                                  &vpn_config.server_privkey,
-                                 vpn_config.range_start.clone(),
-                                 vpn_config.range_end.clone(),
+                                 vpn_config.pool_start.clone(),
+                                 vpn_config.pool_end.clone(),
                                  &vpn_config.clients)?;
 
     for x in rx {
@@ -304,8 +300,12 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
 }
 
 pub fn run(args: Vpnd, config: &Config) -> Result<()> {
+    let vpn_config = config.vpn.as_ref()
+        .ok_or(format_err!("vpn not configured"))?.server.as_ref()
+        .ok_or(format_err!("vpn server not configured"))?;
+
     let tun = Arc::new(vpn::open_tun(&args.interface)?);
-    let socket = Arc::new(UdpServer::bind("127.0.0.1:7788")?); // TODO
+    let socket = Arc::new(UdpServer::bind(&vpn_config.bind)?);
     let (tx, rx) = mpsc::channel();
 
     let t1 = {
@@ -326,9 +326,9 @@ pub fn run(args: Vpnd, config: &Config) -> Result<()> {
     };
 
     let t3 = {
-        let config = config.to_owned();
+        let vpn_config = vpn_config.to_owned();
         thread::spawn(move || {
-            vpn_thread(rx, socket, tun, &config)
+            vpn_thread(rx, socket, tun, &vpn_config)
                 .expect("vpn thread failed");
         })
     };

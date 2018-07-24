@@ -41,6 +41,7 @@ extern crate tun_tap;
 extern crate snow;
 extern crate pktparse;
 extern crate byteorder;
+extern crate cidr;
 #[macro_use] extern crate nom;
 
 pub mod errors {

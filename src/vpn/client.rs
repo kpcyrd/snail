@@ -1,7 +1,7 @@
 use errors::{Result, Error, ResultExt};
 
 use args::snaild::Vpn;
-use config::Config;
+use config::{Config, VpnClientConfig};
 use vpn::{self, Hello, Iface};
 use vpn::crypto::{Session, Handshake};
 use vpn::transport::ClientTransport;
@@ -166,11 +166,7 @@ pub fn udp_thread(tx: mpsc::Sender<Event>, socket: Arc<UdpClient>) -> Result<()>
 pub fn vpn_thread(rx: mpsc::Receiver<Event>,
                   socket: Arc<UdpClient>,
                   tun: Arc<Iface>,
-                  config: &Config) -> Result<()> {
-    let vpn_config = config.vpn.as_ref()
-        .ok_or(format_err!("vpn not configured"))?.client.as_ref()
-        .ok_or(format_err!("vpn client not configured"))?;
-
+                  vpn_config: &VpnClientConfig) -> Result<()> {
     let mut client = Client::new(socket,
                                  tun,
                                  &vpn_config.server_pubkey,
@@ -194,9 +190,13 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
     Ok(())
 }
 
-pub fn run(_args: Vpn, config: &Config) -> Result<()> {
-    let tun = Arc::new(vpn::open_tun("snail1")?); // TODO
-    let socket = Arc::new(UdpClient::connect("127.0.0.1:7788")?); // TODO
+pub fn run(args: Vpn, config: &Config) -> Result<()> {
+    let vpn_config = config.vpn.as_ref()
+        .ok_or(format_err!("vpn not configured"))?.client.as_ref()
+        .ok_or(format_err!("vpn client not configured"))?;
+
+    let tun = Arc::new(vpn::open_tun(&args.interface)?);
+    let socket = Arc::new(UdpClient::connect(&vpn_config.remote)?);
     let (tx, rx) = mpsc::channel();
 
     let t1 = {
@@ -217,9 +217,9 @@ pub fn run(_args: Vpn, config: &Config) -> Result<()> {
     };
 
     let t3 = {
-        let config = config.to_owned();
+        let vpn_config = vpn_config.to_owned();
         thread::spawn(move || {
-            vpn_thread(rx, socket, tun, &config)
+            vpn_thread(rx, socket, tun, &vpn_config)
                 .expect("vpn thread failed");
         })
     };

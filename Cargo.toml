@@ -74,6 +74,7 @@ snow = "0.3.0"
 pktparse = "0.3.0"
 byteorder = "1"
 nom = "4.0"
+cidr = "0.0.4"
 
 [dev-dependencies]
 pseudo = "0.1.0"

@@ -144,14 +144,18 @@ public keys of all clients that are authorized to connect to the server.
 
 ```toml
 [vpn.server]
+bind = "0.0.0.0:7788"
+
 server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
 server_privkey = "a0zxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQg5o="
-range_start = "192.168.100.5"
-range_end = "192.168.100.200"
+
+gateway_ip = "192.168.100.1/24"
+pool_start = "192.168.100.5"
+pool_end = "192.168.100.200"
+
 clients = [
     "cn66xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxaXY=",
 ]
-# TODO: some options are missing
 ```
 
 Next, use `snaild vpn-keygen` again and generate a key for the client. Copy the
@@ -160,9 +164,10 @@ you generated for the server.
 
 ```toml
 [vpn.client]
+remote = "192.0.2.13:7788"
+
 server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
 client_privkey = "te4Pxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4Qx8="
-# TODO: some options are missing
 ```
 
 Starting the vpn on both the server and client should give you an encrypted

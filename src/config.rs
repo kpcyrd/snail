@@ -1,9 +1,10 @@
+use errors::Result;
+use ipc;
+
+use cidr::Ipv4Inet;
 use toml;
 use users;
 use trust_dns::rr::LowerName;
-
-use errors::Result;
-use ipc;
 
 use std::fs;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -92,17 +93,22 @@ pub struct VpnConfig {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct VpnServerConfig {
+    pub bind: SocketAddr,
+
     pub server_pubkey: String,
     pub server_privkey: String,
 
-    pub range_start: Ipv4Addr,
-    pub range_end: Ipv4Addr,
+    pub gateway_ip: Ipv4Inet,
+    pub pool_start: Ipv4Addr,
+    pub pool_end: Ipv4Addr,
 
     pub clients: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct VpnClientConfig {
+    pub remote: SocketAddr,
+
     pub server_pubkey: String,
     pub client_privkey: String,
 }
@@ -176,6 +182,36 @@ mod tests {
         [dns.zones]
         "example.com" = ["192.0.2.2", "2001:DB8::2"]
         "corp.example.com" = ["192.0.2.3", "2001:DB8::3"]
+        "#).expect("failed to load config");
+    }
+
+    #[test]
+    fn test_vpn_server_config() {
+        let _config = load(r#"
+        [vpn.server]
+        bind = "0.0.0.0:7788"
+
+        server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
+        server_privkey = "a0zxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQg5o="
+
+        gateway_ip = "192.168.100.1/24"
+        pool_start = "192.168.100.5"
+        pool_end = "192.168.100.200"
+
+        clients = [
+            "cn66xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxaXY=",
+        ]
+        "#).expect("failed to load config");
+    }
+
+    #[test]
+    fn test_vpn_client_config() {
+        let _config = load(r#"
+        [vpn.client]
+        remote = "192.0.2.13:7788"
+
+        server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
+        client_privkey = "te4Pxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4Qx8="
         "#).expect("failed to load config");
     }
 

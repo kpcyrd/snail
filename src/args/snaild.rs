@@ -71,6 +71,7 @@ pub struct Vpnd {
 
 #[derive(StructOpt, Debug)]
 pub struct Vpn {
+    pub interface: String,
 }
 
 #[derive(StructOpt, Debug)]
