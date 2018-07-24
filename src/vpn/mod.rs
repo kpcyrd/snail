@@ -3,7 +3,6 @@ use errors::{Result, Error};
 use tun_tap::Iface;
 use tun_tap::Mode::Tun;
 
-use std::sync::Arc;
 use std::net::Ipv4Addr;
 
 pub mod crypto;
@@ -37,13 +36,10 @@ pub struct HelloSettings {
     pub addr: Ipv4Addr,
 }
 
-pub fn open_tun(tun: &str)-> Result<(Arc<Iface>, Arc<Iface>)> {
+pub fn open_tun(tun: &str)-> Result<Iface> {
     let iface = Iface::new(&tun, Tun)?;
     info!("opened tun device: {:?}", iface.name());
     // TODO: ip link set up dev iface.name()
 
-
-    let tx = Arc::new(iface);
-    let rx = tx.clone();
-    Ok((tx, rx))
+    Ok(iface)
 }

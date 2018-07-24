@@ -13,8 +13,8 @@ pub struct UdpClient {
 }
 
 impl UdpClient {
-    pub fn connect<T: ToSocketAddrs, U: ToSocketAddrs>(bind: T, remote: U) -> Result<UdpClient> {
-        let socket = UdpSocket::bind(bind)?;
+    pub fn connect<T: ToSocketAddrs>(remote: T) -> Result<UdpClient> {
+        let socket = UdpSocket::bind("0.0.0.0:0")?;
         socket.connect(remote)?;
 
         Ok(UdpClient {

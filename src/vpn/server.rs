@@ -1,4 +1,4 @@
-use errors::Result;
+use errors::{Result, Error, ResultExt};
 
 use args::snaild::Vpnd;
 use config::Config;
@@ -12,28 +12,15 @@ use base64;
 use serde_json;
 use tun_tap::Iface;
 use pktparse::{ipv4};
+use rand::{thread_rng, Rng};
 
 use std::thread;
 use std::result;
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc};
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr};
-use rand::{thread_rng, Rng};
 
-
-#[derive(Debug, Clone)]
-pub struct State {
-    pub foo: Arc<Mutex<String>>,
-}
-
-impl State {
-    pub fn new() -> State {
-        State {
-            foo: Arc::new(Mutex::new(String::from("TODO"))),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct Lease {
@@ -75,6 +62,7 @@ pub enum Session {
 #[derive(Debug)]
 pub struct Server {
     socket: Arc<UdpServer>,
+    tun: Arc<Iface>,
     clients: HashMap<SocketAddr, Session>,
     leases: HashMap<Ipv4Addr, SocketAddr>,
     range_start: Ipv4Addr,
@@ -84,7 +72,12 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(socket: Arc<UdpServer>, server_privkey: &str, range_start: Ipv4Addr, range_end: Ipv4Addr, authorized: &[String]) -> Result<Server> {
+    pub fn new(socket: Arc<UdpServer>,
+               tun: Arc<Iface>,
+               server_privkey: &str,
+               range_start: Ipv4Addr,
+               range_end: Ipv4Addr,
+               authorized: &[String]) -> Result<Server> {
         let server_privkey = base64::decode(&server_privkey)?;
 
         let authorized = authorized.iter()
@@ -93,6 +86,7 @@ impl Server {
 
         Ok(Server {
             socket,
+            tun,
             clients: HashMap::new(),
             leases: HashMap::new(),
             range_start,
@@ -107,11 +101,12 @@ impl Server {
         self.socket.send_to(pkt, dest)
     }
 
-    /*
-    fn tun_send(&self) {
-
+    #[inline]
+    fn tun_send(&self, pkt: &[u8]) -> Result<usize> {
+        self.tun.send(pkt)
+            .context("failed to write to tun device")
+            .map_err(Error::from)
     }
-    */
 
     #[inline]
     pub fn is_authorized(&self, pubkey: &[u8]) -> bool {
@@ -169,8 +164,8 @@ impl Server {
         match self.clients.remove(src) {
             Some(Session::Channel(mut channel)) => {
                 let mut msg = channel.decrypt(pkt)?;
-                println!("{:?}", String::from_utf8(msg.clone()));
-                msg.reverse();
+                // TODO: verify src IP
+                self.tun_send(&msg)?;
 
                 let pkt = channel.encrypt(&msg)?;
                 self.network_send(&pkt, src)?;
@@ -221,39 +216,41 @@ impl Server {
         Ok(())
     }
 
-    /*
-    pub fn tun_insert(&self, dest: &IpAddr, pkt: &[u8]) {
+    pub fn tun_insert(&mut self, dest: &Ipv4Addr, pkt: &[u8]) -> Result<()> {
         // TODO
-    }
-    */
-}
+        let client = match self.leases.get(dest) {
+            Some(client) => client,
+            None => bail!("ip has no active lease"),
+        };
 
-pub fn udp_thread(_state: State, config: &Config) -> Result<()> {
-    let vpn_config = config.vpn.as_ref()
-        .ok_or(format_err!("vpn not configured"))?.server.as_ref()
-        .ok_or(format_err!("vpn server not configured"))?;
+        // TODO: removing and re-inserting the channel is ugly
+        let mut channel = self.clients.remove(client).unwrap();
 
-    let socket = Arc::new(UdpServer::bind("127.0.0.1:7788")?); // TODO
-    let mut server = Server::new(socket.clone(),
-                                 &vpn_config.server_privkey,
-                                 vpn_config.range_start.clone(),
-                                 vpn_config.range_end.clone(),
-                                 &vpn_config.clients)?;
+        // TODO: verify sender IP
 
-    loop {
-        let (msg, src) = socket.recv_from()?;
-        // TODO: connections are never timed out
-        if let Err(e) = server.network_insert(&src, &msg) {
-            warn!("[{}] error: {:?}", src, e);
+        // TODO: this is always true
+        if let Session::Channel(ref mut channel) = channel {
+            let pkt = channel.encrypt(pkt)?;
+            self.network_send(&pkt, &client)?;
         }
+
+        self.clients.insert(*client, channel);
+
+        Ok(())
     }
 }
 
-pub fn rx_thread(tun_rx: Arc<Iface>) -> Result<()> {
+#[derive(Debug)]
+pub enum Event {
+    Tun((Ipv4Addr, Vec<u8>)),
+    Udp((Packet, SocketAddr)),
+}
+
+pub fn tun_thread(tx: mpsc::Sender<Event>, tun: Arc<Iface>) -> Result<()> {
     let mut buffer = vec![0; 1504]; // MTU + 4 for the header
 
     loop {
-        let n = tun_rx.recv(&mut buffer)?;
+        let n = tun.recv(&mut buffer)?;
 
         let pkt = &buffer[4..n];
         debug!("recv(tun): {:?}", pkt);
@@ -263,52 +260,81 @@ pub fn rx_thread(tun_rx: Arc<Iface>) -> Result<()> {
                 continue;
             }
 
-            info!("recv(ipv4): {:?}", ipv4);
-            warn!("todo: forward packet to {:?}", ipv4.dest_addr);
+            debug!("recv(ipv4): {:?}", ipv4);
+            tx.send(Event::Tun((ipv4.dest_addr.into(), buffer[..n].to_vec()))).unwrap();
+        }
+    }
+}
+
+pub fn udp_thread(tx: mpsc::Sender<Event>, socket: Arc<UdpServer>) -> Result<()> {
+    loop {
+        let (msg, src) = socket.recv_from()?;
+        debug!("recv(udp): {} -> {:?}", src, msg);
+        tx.send(Event::Udp((msg, src))).unwrap();
+    }
+}
+
+pub fn vpn_thread(rx: mpsc::Receiver<Event>,
+                  socket: Arc<UdpServer>,
+                  tun: Arc<Iface>,
+                  config: &Config) -> Result<()> {
+    let vpn_config = config.vpn.as_ref()
+        .ok_or(format_err!("vpn not configured"))?.server.as_ref()
+        .ok_or(format_err!("vpn server not configured"))?;
+
+    let mut server = Server::new(socket, tun,
+                                 &vpn_config.server_privkey,
+                                 vpn_config.range_start.clone(),
+                                 vpn_config.range_end.clone(),
+                                 &vpn_config.clients)?;
+
+    for x in rx {
+        // TODO: connections are never timed out
+        match x {
+            Event::Udp((msg, src)) => if let Err(e) = server.network_insert(&src, &msg) {
+                warn!("[{}] error: {:?}", src, e);
+            },
+            Event::Tun((dest, pkt)) => if let Err(e) = server.tun_insert(&dest, &pkt) {
+                warn!("[{}] error: {:?}", dest, e);
+            },
         }
     }
 
-    // Ok(())
-}
-
-pub fn tx_thread(_tx: Arc<Iface>) -> Result<()> {
-
-/*
-let mut buffer = vec![0; 1504]; // MTU + 4 for the header
-loop {
-let n = tap.recv(&mut buffer)?;
-debug!("recv(tap): {:?}", &buffer[4..n]);
-*/
-
-    // unimplemented!()
     Ok(())
 }
 
 pub fn run(args: Vpnd, config: &Config) -> Result<()> {
-    let state = State::new();
+    let tun = Arc::new(vpn::open_tun(&args.interface)?);
+    let socket = Arc::new(UdpServer::bind("127.0.0.1:7788")?); // TODO
+    let (tx, rx) = mpsc::channel();
 
     let t1 = {
-        let state = state.clone();
-        let config = config.to_owned();
+        let tx = tx.clone();
+        let tun = tun.clone();
         thread::spawn(move || {
-            udp_thread(state, &config)
-                .expect("vpn udp thread failed");
+            tun_thread(tx, tun)
+                .expect("tun rx thread failed");
         })
     };
 
-    let (tx, rx) = vpn::open_tun(&args.interface)?;
+    let t2 = {
+        let socket = socket.clone();
+        thread::spawn(move || {
+            udp_thread(tx, socket)
+                .expect("udp rx thread failed");
+        })
+    };
 
-    let t2 = thread::spawn(move || {
-        rx_thread(rx)
-            .expect("vpn rx thread failed");
-    });
-
-    let t3 = thread::spawn(move || {
-        tx_thread(tx)
-            .expect("vpn tx thread failed");
-    });
+    let t3 = {
+        let config = config.to_owned();
+        thread::spawn(move || {
+            vpn_thread(rx, socket, tun, &config)
+                .expect("vpn thread failed");
+        })
+    };
 
     // TODO: timer thread to remove dead clients
+    // TODO: ^ could be implemented using a recv timeout on mpsc
 
     for t in vec![t1, t2, t3] {
         t.join()
