@@ -1,10 +1,9 @@
-use errors::Result;
+use errors::{Result, Error, ResultExt};
 
 use vpn::wire::Packet;
 
 use snow::{self, Builder};
-use snow::resolvers::{CryptoResolver, DefaultResolver};
-use snow::params::{NoiseParams, DHChoice};
+use snow::params::NoiseParams;
 
 pub mod client;
 pub use self::client::ClientHandshake;
@@ -13,19 +12,10 @@ pub use self::server::ServerHandshake;
 
 
 pub fn gen_key() -> Result<(Vec<u8>, Vec<u8>)> {
-    let resolver = DefaultResolver;
-    let dh = DHChoice::Curve25519;
-
-    let mut rng = resolver.resolve_rng().unwrap();
-    let mut dh = resolver.resolve_dh(&dh).unwrap();
-
-    let mut public = vec![0u8; dh.pub_len()];
-    let mut private = vec![0u8; dh.priv_len()];
-    dh.generate(&mut *rng);
-
-    public[..dh.pub_len()].copy_from_slice(dh.pubkey());
-    private[..dh.priv_len()].copy_from_slice(dh.privkey());
-    Ok((public, private))
+    Builder::new(Handshake::gen_params())
+        .generate_keypair()
+        .map_err(Error::from)
+        .map(|keypair| (keypair.public, keypair.private))
 }
 
 #[derive(Debug)]
@@ -55,11 +45,8 @@ impl Handshake {
     }
 
     pub fn responder(local_privkey: &[u8]) -> Result<Handshake> {
-        let noise = match Handshake::new(&local_privkey)
-                .build_responder() {
-            Ok(noise) => noise,
-            Err(e) => bail!("failed to build responder: {:?}", e),
-        };
+        let noise = Handshake::new(&local_privkey)
+                        .build_responder()?;
 
         Ok(Handshake {
             noise,
@@ -67,12 +54,9 @@ impl Handshake {
     }
 
     pub fn initiator(remote_pubkey: &[u8], local_privkey: &[u8]) -> Result<Handshake> {
-        let noise = match Handshake::new(local_privkey)
-                .remote_public_key(remote_pubkey)
-                .build_initiator() {
-            Ok(noise) => noise,
-            Err(e) => bail!("failed to build initiator: {:?}", e),
-        };
+        let noise = Handshake::new(local_privkey)
+                        .remote_public_key(remote_pubkey)
+                        .build_initiator()?;
 
         Ok(Handshake {
             noise,
@@ -82,10 +66,8 @@ impl Handshake {
     pub fn insert(&mut self, cipher: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; 65535];
 
-        let _n = match self.noise.read_message(cipher, &mut buf) {
-            Ok(n) => n,
-            Err(e) => bail!("failed to read noise: {:?}", e),
-        };
+        let _n = self.noise.read_message(cipher, &mut buf)
+                        .context("failed to read noise")?;
 
         Ok(())
     }
@@ -93,10 +75,8 @@ impl Handshake {
     pub fn take(&mut self) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; 65535];
 
-        let n = match self.noise.write_message(&[0u8; 0], &mut buf) {
-            Ok(n) => n,
-            Err(e) => bail!("failed to write noise: {:?}", e),
-        };
+        let n = self.noise.write_message(&[0u8; 0], &mut buf)
+                        .context("failed to write noise")?;
 
         Ok(buf[..n].to_vec())
     }
@@ -113,12 +93,11 @@ impl Handshake {
     }
 
     pub fn channel(self) -> Result<Channel> {
-        match self.noise.into_transport_mode() {
-            Ok(noise) => Ok(Channel {
-                noise,
-            }),
-            Err(e) => bail!("could not switch into transport mode: {:?}", e),
-        }
+        let noise = self.noise.into_transport_mode()
+                            .context("could not switch into transport mode")?;
+        Ok(Channel {
+            noise,
+        })
     }
 }
 
@@ -139,10 +118,8 @@ impl Channel {
 
         let packet = packet.transport()?;
         self.noise.set_receiving_nonce(packet.nonce)?;
-        let n = match self.noise.read_message(&packet.bytes, &mut buf) {
-            Ok(n) => n,
-            Err(e) => bail!("failed to read noise: {:?}", e),
-        };
+        let n = self.noise.read_message(&packet.bytes, &mut buf)
+                        .context("failed to read noise")?;
 
         Ok(buf[..n].to_vec())
     }
@@ -151,10 +128,8 @@ impl Channel {
         let mut buf = vec![0u8; 65535];
 
         let nonce = self.noise.sending_nonce()?;
-        let n = match self.noise.write_message(msg, &mut buf) {
-            Ok(n) => n,
-            Err(e) => bail!("failed to write noise: {:?}", e),
-        };
+        let n = self.noise.write_message(msg, &mut buf)
+                        .context("failed to write noise")?;
 
         Ok(Packet::make_transport(nonce, buf[..n].to_vec()))
     }
