@@ -1,4 +1,4 @@
-use errors::Result;
+use errors::{Result, ResultExt};
 use config::Config;
 
 use caps::{self, CapSet, Capability};
@@ -37,7 +37,8 @@ pub fn chroot_socket_path(socket: &str, chroot: &str) -> Result<String> {
 }
 
 pub fn chroot(path: &str) -> Result<()> {
-    nix::unistd::chroot(path)?;
+    nix::unistd::chroot(path)
+        .context(format!("failed to chroot to {:?}", path))?;
     env::set_current_dir("/")?;
     Ok(())
 }
