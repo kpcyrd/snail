@@ -103,6 +103,8 @@ pub struct VpnServerConfig {
     pub pool_end: Ipv4Addr,
 
     pub clients: Vec<String>,
+
+    pub ping_timeout: Option<u64>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

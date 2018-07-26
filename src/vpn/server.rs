@@ -17,7 +17,9 @@ use rand::{thread_rng, Rng};
 
 use std::thread;
 use std::result;
+use std::time::{Duration, Instant};
 use std::sync::{mpsc, Arc};
+use std::sync::mpsc::RecvTimeoutError;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -65,8 +67,12 @@ pub struct Server {
     socket: Arc<UdpServer>,
     tun: Arc<Iface>,
     addr: Ipv4Inet,
-    clients: HashMap<SocketAddr, Session>,
+    timeout: Duration,
+
+    clients: HashMap<SocketAddr, Session>, // TODO: this needs to reference self.leases
     leases: HashMap<Ipv4Addr, SocketAddr>,
+    timeouts: HashMap<SocketAddr, Instant>,
+
     pool_start: Ipv4Addr,
     pool_end: Ipv4Addr,
     authorized: HashSet<Vec<u8>>,
@@ -77,6 +83,8 @@ impl Server {
     pub fn new(socket: Arc<UdpServer>,
                tun: Arc<Iface>,
                addr: Ipv4Inet,
+               timeout: Duration,
+
                server_privkey: &str,
                pool_start: Ipv4Addr,
                pool_end: Ipv4Addr,
@@ -91,8 +99,12 @@ impl Server {
             socket,
             tun,
             addr,
+            timeout,
+
             clients: HashMap::new(),
             leases: HashMap::new(),
+            timeouts: HashMap::new(),
+
             pool_start,
             pool_end,
             authorized,
@@ -158,11 +170,13 @@ impl Server {
     #[inline]
     fn insert_handshake(&mut self, src: &SocketAddr, responder: Handshake) {
         self.clients.insert(src.clone(), Session::Handshake(responder));
+        self.timeouts.insert(src.clone(), Instant::now());
     }
 
     #[inline]
     fn insert_channel(&mut self, src: &SocketAddr, responder: Lease) {
         self.clients.insert(src.clone(), Session::Channel(responder));
+        self.timeouts.insert(src.clone(), Instant::now());
     }
 
     pub fn network_insert(&mut self, src: &SocketAddr, pkt: &Packet) -> Result<()> {
@@ -243,6 +257,34 @@ impl Server {
 
         Ok(())
     }
+
+    pub fn disconnect_timeout_clients(&mut self) -> Result<()> { // TODO: this function shouldn't fail
+        if self.clients.is_empty() {
+            return Ok(());
+        }
+
+        let mut dead = Vec::new();
+        let now = Instant::now();
+
+        for (src, last_packet) in &self.timeouts {
+            if now.duration_since(*last_packet) > self.timeout {
+                dead.push(src.clone());
+            }
+        }
+
+        for dead in dead {
+            info!("client timeout: {:?}", dead);
+            match self.clients.remove(&dead) {
+                Some(Session::Channel(lease)) => {
+                    self.leases.remove(&lease.addr);
+                },
+                _ => (),
+            }
+            self.timeouts.remove(&dead);
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -283,23 +325,31 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
                   socket: Arc<UdpServer>,
                   tun: Arc<Iface>,
                   vpn_config: &VpnServerConfig) -> Result<()> {
+
+    let timeout = Duration::from_secs(vpn_config.ping_timeout.unwrap_or(60));
+
     let mut server = Server::new(socket, tun,
                                  vpn_config.gateway_ip.clone(),
+                                 timeout.clone(),
+
                                  &vpn_config.server_privkey,
                                  vpn_config.pool_start.clone(),
                                  vpn_config.pool_end.clone(),
                                  &vpn_config.clients)?;
 
-    for x in rx {
-        // TODO: connections are never timed out
-        match x {
-            Event::Udp((msg, src)) => if let Err(e) = server.network_insert(&src, &msg) {
+    loop {
+        match rx.recv_timeout(timeout) {
+            Ok(Event::Udp((msg, src))) => if let Err(e) = server.network_insert(&src, &msg) {
                 warn!("[{}] error: {:?}", src, e);
             },
-            Event::Tun((dest, pkt)) => if let Err(e) = server.tun_insert(&dest, &pkt) {
+            Ok(Event::Tun((dest, pkt))) => if let Err(e) = server.tun_insert(&dest, &pkt) {
                 warn!("[{}] error: {:?}", dest, e);
             },
-        }
+            Err(RecvTimeoutError::Timeout) => (),
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
+
+        server.disconnect_timeout_clients()?;
     }
 
     Ok(())
