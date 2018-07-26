@@ -20,12 +20,14 @@ pub struct Client {
     session: Option<Session>,
     socket: Arc<UdpClient>,
     tun: Arc<Iface>,
+    interface: String,
     pending_hello: bool,
 }
 
 impl Client {
     pub fn new(socket: Arc<UdpClient>,
                tun: Arc<Iface>,
+               interface: String,
                server_pubkey: &str,
                client_privkey: &str) -> Result<Client> {
         let server_pubkey = base64::decode(&server_pubkey)?;
@@ -38,6 +40,7 @@ impl Client {
             session: Some(Session::Handshake(handshake)),
             socket,
             tun,
+            interface,
             pending_hello: false,
         })
     }
@@ -100,6 +103,9 @@ impl Client {
                     match msg {
                         Hello::Welcome(settings) => {
                             info!("server accepted session and sent settings: {:?}", settings);
+
+                            vpn::ipconfig(&self.interface,
+                                          &settings.addr)?;
                         },
                         Hello::Rejected(err) => {
                             bail!("server rejected us: {:?}", err);
@@ -166,9 +172,11 @@ pub fn udp_thread(tx: mpsc::Sender<Event>, socket: Arc<UdpClient>) -> Result<()>
 pub fn vpn_thread(rx: mpsc::Receiver<Event>,
                   socket: Arc<UdpClient>,
                   tun: Arc<Iface>,
+                  interface: String,
                   vpn_config: &VpnClientConfig) -> Result<()> {
     let mut client = Client::new(socket,
                                  tun,
+                                 interface,
                                  &vpn_config.server_pubkey,
                                  &vpn_config.client_privkey)?;
 
@@ -219,7 +227,7 @@ pub fn run(args: Vpn, config: &Config) -> Result<()> {
     let t3 = {
         let vpn_config = vpn_config.to_owned();
         thread::spawn(move || {
-            vpn_thread(rx, socket, tun, &vpn_config)
+            vpn_thread(rx, socket, tun, args.interface, &vpn_config)
                 .expect("vpn thread failed");
         })
     };

@@ -9,6 +9,7 @@ use vpn::transport::udp::UdpServer;
 use vpn::wire::Packet;
 
 use base64;
+use cidr::{Inet, Ipv4Inet};
 use serde_json;
 use tun_tap::Iface;
 use pktparse::{ipv4};
@@ -63,6 +64,7 @@ pub enum Session {
 pub struct Server {
     socket: Arc<UdpServer>,
     tun: Arc<Iface>,
+    addr: Ipv4Inet,
     clients: HashMap<SocketAddr, Session>,
     leases: HashMap<Ipv4Addr, SocketAddr>,
     pool_start: Ipv4Addr,
@@ -74,6 +76,7 @@ pub struct Server {
 impl Server {
     pub fn new(socket: Arc<UdpServer>,
                tun: Arc<Iface>,
+               addr: Ipv4Inet,
                server_privkey: &str,
                pool_start: Ipv4Addr,
                pool_end: Ipv4Addr,
@@ -87,6 +90,7 @@ impl Server {
         Ok(Server {
             socket,
             tun,
+            addr,
             clients: HashMap::new(),
             leases: HashMap::new(),
             pool_start,
@@ -135,7 +139,7 @@ impl Server {
         }
     }
 
-    pub fn setup_channel(&mut self, src: &SocketAddr, responder: &Channel) -> Result<Ipv4Addr> {
+    pub fn setup_channel(&mut self, src: &SocketAddr, responder: &Channel) -> Result<Ipv4Inet> {
         let remote_key = responder.remote_pubkey()?;
         if !self.is_authorized(&remote_key) {
             bail!("client not authorized");
@@ -147,6 +151,7 @@ impl Server {
         let addr = self.allocate_ip(&src)?;
         info!("[{}] assigning ip to client: {}", src, addr);
 
+        let addr = Ipv4Inet::new(addr, self.addr.network_length())?;
         Ok(addr)
     }
 
@@ -182,11 +187,11 @@ impl Server {
 
                     match self.setup_channel(src, &responder) {
                         Ok(addr) => {
-                            let welcome = serde_json::to_string(&Hello::welcome(addr))?;
+                            let welcome = serde_json::to_string(&Hello::welcome(addr.clone()))?;
                             let pkt = responder.encrypt(welcome.as_bytes())?;
 
                             self.network_send(&pkt, &src)?;
-                            self.insert_channel(src, Lease::new(responder, addr));
+                            self.insert_channel(src, Lease::new(responder, addr.address()));
                         },
                         Err(e) => {
                             warn!("[{}] client rejected: {:?}", src, e);
@@ -279,6 +284,7 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
                   tun: Arc<Iface>,
                   vpn_config: &VpnServerConfig) -> Result<()> {
     let mut server = Server::new(socket, tun,
+                                 vpn_config.gateway_ip.clone(),
                                  &vpn_config.server_privkey,
                                  vpn_config.pool_start.clone(),
                                  vpn_config.pool_end.clone(),
@@ -305,6 +311,10 @@ pub fn run(args: Vpnd, config: &Config) -> Result<()> {
         .ok_or(format_err!("vpn server not configured"))?;
 
     let tun = Arc::new(vpn::open_tun(&args.interface)?);
+
+    vpn::ipconfig(&args.interface,
+                  &vpn_config.gateway_ip)?;
+
     let socket = Arc::new(UdpServer::bind(&vpn_config.bind)?);
     let (tx, rx) = mpsc::channel();
 

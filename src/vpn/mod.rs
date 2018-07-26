@@ -1,9 +1,9 @@
-use errors::{Result, Error};
+use errors::{Result, Error, ResultExt};
+use utils;
 
+use cidr::Ipv4Inet;
 use tun_tap::Iface;
 use tun_tap::Mode::Tun;
-
-use std::net::Ipv4Addr;
 
 pub mod crypto;
 pub mod client;
@@ -20,7 +20,7 @@ pub enum Hello {
 }
 
 impl Hello {
-    pub fn welcome(addr: Ipv4Addr) -> Hello {
+    pub fn welcome(addr: Ipv4Inet) -> Hello {
         Hello::Welcome(HelloSettings {
             addr,
         })
@@ -33,7 +33,7 @@ impl Hello {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HelloSettings {
-    pub addr: Ipv4Addr,
+    pub addr: Ipv4Inet,
 }
 
 pub fn open_tun(tun: &str)-> Result<Iface> {
@@ -42,4 +42,17 @@ pub fn open_tun(tun: &str)-> Result<Iface> {
     // TODO: ip link set up dev iface.name()
 
     Ok(iface)
+}
+
+pub fn ipconfig(interface: &str, addr: &Ipv4Inet) -> Result<()> {
+    utils::cmd("ip", &["link", "set", &interface, "up"])
+        .context("failed to set tun device up")?;
+
+    info!("configuring tun device: {}", addr);
+    utils::cmd("ip", &["address",
+                       "add", &addr.to_string(),
+                       "dev", &interface])
+        .context("failed to set ip on tun device")?;
+
+    Ok(())
 }

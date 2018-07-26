@@ -4,7 +4,18 @@ use std::process::Command;
 use wifi::Network;
 use errors::Result;
 
-fn cmd(cmd: &str, args: &[&str]) -> Result<String> {
+pub fn run(cmd: &str, args: &[&str]) -> Result<()> {
+    let status = Command::new(cmd)
+        .args(args)
+        .status()?;
+    if !status.success() {
+        bail!("command exited with error");
+    }
+
+    Ok(())
+}
+
+pub fn cmd(cmd: &str, args: &[&str]) -> Result<String> {
     let output = Command::new(cmd)
         .args(args)
         .output()?;

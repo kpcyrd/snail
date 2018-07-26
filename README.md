@@ -175,7 +175,7 @@ tunnel between both:
 
 ```
 server# snaild vpnd snail0
-client# snaild vpn
+client# snaild vpn snail1
 ```
 
 ## Trivia
