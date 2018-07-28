@@ -9,9 +9,11 @@ use vpn::transport::udp::UdpClient;
 use vpn::wire::Packet;
 
 use std::thread;
+use std::net::SocketAddr;
 use std::sync::{mpsc, Arc};
 
 use base64;
+use cidr::{Ipv4Inet, Inet};
 use serde_json;
 
 
@@ -20,14 +22,21 @@ pub struct Client {
     session: Option<Session>,
     socket: Arc<UdpClient>,
     tun: Arc<Iface>,
-    interface: String,
     pending_hello: bool,
+
+    interface: String,
+    remote: SocketAddr,
+    tunnel_all_traffic: bool,
 }
 
 impl Client {
     pub fn new(socket: Arc<UdpClient>,
                tun: Arc<Iface>,
+
                interface: String,
+               remote: SocketAddr,
+               tunnel_all_traffic: bool,
+
                server_pubkey: &str,
                client_privkey: &str) -> Result<Client> {
         let server_pubkey = base64::decode(&server_pubkey)?;
@@ -40,7 +49,11 @@ impl Client {
             session: Some(Session::Handshake(handshake)),
             socket,
             tun,
+
             interface,
+            remote,
+            tunnel_all_traffic,
+
             pending_hello: false,
         })
     }
@@ -106,6 +119,19 @@ impl Client {
 
                             vpn::ipconfig(&self.interface,
                                           &settings.addr)?;
+
+                            if self.tunnel_all_traffic {
+                                info!("redirecting all traffic");
+
+                                // add route for vpn server ip first
+                                if let SocketAddr::V4(ref remote) = self.remote {
+                                    let old_gateway = vpn::get_route(remote.ip())?;
+                                    let route = Ipv4Inet::new(remote.ip().clone(), 32)?;
+                                    vpn::add_route(&route, &old_gateway)?;
+                                }
+
+                                vpn::tunnel_all_traffic(&settings.gateway)?;
+                            }
                         },
                         Hello::Rejected(err) => {
                             bail!("server rejected us: {:?}", err);
@@ -176,7 +202,11 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
                   vpn_config: &VpnClientConfig) -> Result<()> {
     let mut client = Client::new(socket,
                                  tun,
+
                                  interface,
+                                 vpn_config.remote,
+                                 vpn_config.tunnel_all_traffic,
+
                                  &vpn_config.server_pubkey,
                                  &vpn_config.client_privkey)?;
 

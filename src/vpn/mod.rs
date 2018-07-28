@@ -5,6 +5,8 @@ use cidr::Ipv4Inet;
 use tun_tap::Iface;
 use tun_tap::Mode::Tun;
 
+use std::net::Ipv4Addr;
+
 pub mod crypto;
 pub mod client;
 pub mod server;
@@ -20,9 +22,10 @@ pub enum Hello {
 }
 
 impl Hello {
-    pub fn welcome(addr: Ipv4Inet) -> Hello {
+    pub fn welcome(addr: Ipv4Inet, gateway: Ipv4Addr) -> Hello {
         Hello::Welcome(HelloSettings {
             addr,
+            gateway,
         })
     }
 
@@ -34,6 +37,7 @@ impl Hello {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HelloSettings {
     pub addr: Ipv4Inet,
+    pub gateway: Ipv4Addr,
 }
 
 pub fn open_tun(tun: &str)-> Result<Iface> {
@@ -54,5 +58,33 @@ pub fn ipconfig(interface: &str, addr: &Ipv4Inet) -> Result<()> {
                        "dev", &interface])
         .context("failed to set ip on tun device")?;
 
+    Ok(())
+}
+
+pub fn add_route(range: &Ipv4Inet, gateway: &Ipv4Addr) -> Result<()> {
+    utils::cmd("ip", &["route", "add", &range.to_string(), "via", &gateway.to_string()])
+        .context("failed to set route")?;
+    Ok(())
+}
+
+pub fn get_route(target: &Ipv4Addr) -> Result<Ipv4Addr> {
+    use regex::Regex;
+
+    let output = utils::cmd("ip", &["route", "get", &target.to_string()])
+        .context("failed to get route from table")?;
+
+    let re = Regex::new(r#"^[\d\.]+ via ([\d\.]+)"#).unwrap();
+
+    if let Some(gateway) = re.captures(&output) {
+        let gateway = gateway.get(1).unwrap();
+        Ok(gateway.as_str().parse()?)
+    } else {
+        bail!("no gateway found");
+    }
+}
+
+pub fn tunnel_all_traffic(gateway: &Ipv4Addr) -> Result<()> {
+    add_route(&"0.0.0.0/1".parse()?, &gateway)?;
+    add_route(&"128.0.0.0/1".parse()?, &gateway)?;
     Ok(())
 }

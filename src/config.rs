@@ -113,6 +113,9 @@ pub struct VpnClientConfig {
 
     pub server_pubkey: String,
     pub client_privkey: String,
+
+    #[serde(default)]
+    pub tunnel_all_traffic: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
