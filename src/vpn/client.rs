@@ -118,9 +118,19 @@ impl Client {
                 }
             },
             Session::Channel(mut session) => {
+                let pkt = pkt.transport()?;
+                let msg = match session.decrypt(pkt) {
+                    Ok(pkt) => pkt,
+                    Err(err) => {
+                        // TODO: reinserting is ugly
+                        self.session = Some(Session::Channel(session));
+
+                        return Err(err);
+                    },
+                };
+
                 if self.pending_hello {
                     self.pending_hello = false;
-                    let msg = session.decrypt(pkt)?;
 
                     let msg = serde_json::from_slice::<Hello>(&msg)?;
                     debug!("server said: {:?}", msg);
@@ -149,7 +159,6 @@ impl Client {
                         },
                     }
                 } else {
-                    let msg = session.decrypt(pkt)?;
                     if !msg.is_empty() {
                         self.tun_send(&msg)
                             .context("failed to write to tun device")?;
@@ -262,7 +271,6 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
     client.start_session()?;
 
     loop {
-        // TODO: connections are never timed out
         match rx.recv_timeout(client.timeout()) {
             Ok(Event::Udp(msg)) => if let Err(e) = client.network_insert(&msg) {
                 warn!("[udp] error: {:?}", e);
@@ -313,9 +321,6 @@ pub fn run(args: Vpn, config: &Config) -> Result<()> {
                 .expect("vpn thread failed");
         })
     };
-
-    // TODO: timer thread to remove dead clients
-    // TODO: ^ could be implemented using a recv timeout on mpsc
 
     for t in vec![t1, t2, t3] {
         t.join()

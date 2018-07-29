@@ -6,7 +6,7 @@ use vpn::{self, Hello};
 use vpn::crypto::{Handshake, Channel};
 use vpn::transport::ServerTransport;
 use vpn::transport::udp::UdpServer;
-use vpn::wire::Packet;
+use vpn::wire::{self, Packet};
 
 use base64;
 use cidr::{Inet, Ipv4Inet};
@@ -46,7 +46,7 @@ impl Lease {
     }
 
     #[inline]
-    pub fn decrypt(&mut self, packet: &Packet) -> Result<Vec<u8>> {
+    pub fn decrypt(&mut self, packet: &wire::Transport) -> Result<Vec<u8>> {
         self.session.decrypt(packet)
     }
 
@@ -182,7 +182,14 @@ impl Server {
     pub fn network_insert(&mut self, src: &SocketAddr, pkt: &Packet) -> Result<()> {
         match self.clients.remove(src) {
             Some(Session::Channel(mut channel)) => {
-                let mut msg = channel.decrypt(pkt)?;
+                let pkt = pkt.transport()?;
+                let mut msg = match channel.decrypt(pkt) {
+                    Ok(msg) => msg,
+                    Err(err) => {
+                        self.insert_channel(src, channel);
+                        return Err(err);
+                    },
+                };
 
                 if !msg.is_empty() {
                     // TODO: verify src IP
@@ -396,9 +403,6 @@ pub fn run(args: Vpnd, config: &Config) -> Result<()> {
                 .expect("vpn thread failed");
         })
     };
-
-    // TODO: timer thread to remove dead clients
-    // TODO: ^ could be implemented using a recv timeout on mpsc
 
     for t in vec![t1, t2, t3] {
         t.join()

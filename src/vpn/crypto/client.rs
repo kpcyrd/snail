@@ -64,6 +64,7 @@ pub struct ClientChannel<T: ClientTransport> {
 impl<T: ClientTransport> ClientChannel<T> {
     pub fn recv(&mut self) -> Result<Vec<u8>> {
         let pkt = self.transport.recv()?;
+        let pkt = pkt.transport()?;
         let msg = self.channel.decrypt(&pkt)?;
         Ok(msg)
     }

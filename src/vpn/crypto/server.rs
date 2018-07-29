@@ -70,6 +70,7 @@ pub struct ServerChannel<T: ServerTransport> {
 impl<T: ServerTransport> ServerChannel<T> {
     pub fn recv_from(&mut self) -> Result<(Vec<u8>, SocketAddr)> {
         let (pkt, src) = self.transport.recv_from()?;
+        let pkt = pkt.transport()?;
         let msg = self.channel.decrypt(&pkt)?;
         Ok((msg, src))
     }

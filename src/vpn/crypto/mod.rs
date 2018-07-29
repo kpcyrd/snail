@@ -1,6 +1,6 @@
 use errors::{Result, Error, ResultExt};
 
-use vpn::wire::Packet;
+use vpn::wire::{self, Packet};
 
 use snow::{self, Builder};
 use snow::params::NoiseParams;
@@ -97,6 +97,7 @@ impl Handshake {
                             .context("could not switch into transport mode")?;
         Ok(Channel {
             noise,
+            nonce: None,
         })
     }
 }
@@ -104,6 +105,8 @@ impl Handshake {
 #[derive(Debug)]
 pub struct Channel {
     noise: snow::Session,
+    // TODO: nonce should be non-option
+    nonce: Option<u64>,
 }
 
 impl Channel {
@@ -113,10 +116,16 @@ impl Channel {
             .ok_or(format_err!("remote did not send longterm pubkey"))
     }
 
-    pub fn decrypt(&mut self, packet: &Packet) -> Result<Vec<u8>> {
+    pub fn decrypt(&mut self, packet: &wire::Transport) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; 65535];
 
-        let packet = packet.transport()?;
+        if let Some(nonce) = self.nonce {
+            if packet.nonce <= nonce {
+                bail!("replayed packet");
+            }
+        }
+        self.nonce = Some(packet.nonce);
+
         self.noise.set_receiving_nonce(packet.nonce)?;
         let n = self.noise.read_message(&packet.bytes, &mut buf)
                         .context("failed to read noise")?;
