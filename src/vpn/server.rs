@@ -284,7 +284,7 @@ impl Server {
         }
 
         for dead in dead {
-            info!("client timeout: {:?}", dead);
+            info!("[{}] client timeout", dead);
             match self.clients.remove(&dead) {
                 Some(Session::Channel(lease)) => {
                     self.leases.remove(&lease.addr);
@@ -351,10 +351,10 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
     loop {
         match rx.recv_timeout(timeout) {
             Ok(Event::Udp((msg, src))) => if let Err(e) = server.network_insert(&src, &msg) {
-                warn!("[{}] error: {:?}", src, e);
+                warn!("[{}] error: {}", src, e);
             },
             Ok(Event::Tun((dest, pkt))) => if let Err(e) = server.tun_insert(&dest, &pkt) {
-                warn!("[{}] error: {:?}", dest, e);
+                warn!("[{}] error: {}", dest, e);
             },
             Err(RecvTimeoutError::Timeout) => (),
             Err(RecvTimeoutError::Disconnected) => break,

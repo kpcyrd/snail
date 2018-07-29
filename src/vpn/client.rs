@@ -205,7 +205,7 @@ impl Client {
         self.ping_interval.clone() // TODO: inline maybe
     }
 
-    pub fn ping_if_needed(&mut self) -> Result<()> {
+    pub fn keepalive(&mut self) -> Result<()> {
         let now = Instant::now();
 
         if let Some(last_client_ping) = self.last_client_ping.clone() {
@@ -273,16 +273,16 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
     loop {
         match rx.recv_timeout(client.timeout()) {
             Ok(Event::Udp(msg)) => if let Err(e) = client.network_insert(&msg) {
-                warn!("[udp] error: {:?}", e);
+                warn!("[udp] error: {}", e);
             },
             Ok(Event::Tun(pkt)) => if let Err(e) = client.tun_insert(&pkt) {
-                warn!("[tun] error: {:?}", e);
+                warn!("[tun] error: {}", e);
             },
             Err(RecvTimeoutError::Timeout) => (),
             Err(RecvTimeoutError::Disconnected) => break,
         }
 
-        client.ping_if_needed()?;
+        client.keepalive()?;
     }
 
     Ok(())
