@@ -144,7 +144,7 @@ public keys of all clients that are authorized to connect to the server.
 
 ```toml
 [vpn.server]
-bind = "0.0.0.0:7788"
+bind = "0.0.0.0:443"
 
 server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
 server_privkey = "a0zxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQg5o="
@@ -164,7 +164,7 @@ you generated for the server.
 
 ```toml
 [vpn.client]
-remote = "192.0.2.13:7788"
+remote = "192.0.2.13:443"
 
 server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
 client_privkey = "te4Pxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4Qx8="

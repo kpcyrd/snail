@@ -194,7 +194,7 @@ mod tests {
     fn test_vpn_server_config() {
         let _config = load(r#"
         [vpn.server]
-        bind = "0.0.0.0:7788"
+        bind = "0.0.0.0:443"
 
         server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
         server_privkey = "a0zxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQg5o="
@@ -213,7 +213,7 @@ mod tests {
     fn test_vpn_client_config() {
         let _config = load(r#"
         [vpn.client]
-        remote = "192.0.2.13:7788"
+        remote = "192.0.2.13:443"
 
         server_pubkey = "s0c8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4D0="
         client_privkey = "te4Pxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4Qx8="
