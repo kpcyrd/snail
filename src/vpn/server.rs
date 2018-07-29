@@ -183,13 +183,16 @@ impl Server {
         match self.clients.remove(src) {
             Some(Session::Channel(mut channel)) => {
                 let mut msg = channel.decrypt(pkt)?;
-                // TODO: verify src IP
-                self.tun_send(&msg)?;
 
-                let pkt = channel.encrypt(&msg)?;
-                self.network_send(&pkt, src)?;
+                if !msg.is_empty() {
+                    // TODO: verify src IP
+                    self.tun_send(&msg)?;
 
-                self.insert_channel(src, channel);
+                    let pkt = channel.encrypt(&msg)?;
+                    self.network_send(&pkt, src)?;
+
+                    self.insert_channel(src, channel);
+                }
             },
             Some(Session::Handshake(mut handshake)) => {
                 let pkt = pkt.handshake()?;

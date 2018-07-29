@@ -11,6 +11,8 @@ use vpn::wire::Packet;
 use std::thread;
 use std::net::SocketAddr;
 use std::sync::{mpsc, Arc};
+use std::sync::mpsc::RecvTimeoutError;
+use std::time::{Duration, Instant};
 
 use base64;
 use cidr::{Ipv4Inet, Inet};
@@ -27,6 +29,10 @@ pub struct Client {
     interface: String,
     remote: SocketAddr,
     tunnel_all_traffic: bool,
+
+    last_client_ping: Option<Instant>,
+    last_server_ping: Option<Instant>,
+    ping_interval: Duration,
 }
 
 impl Client {
@@ -55,11 +61,15 @@ impl Client {
             tunnel_all_traffic,
 
             pending_hello: false,
+            last_client_ping: None,
+            last_server_ping: None,
+            ping_interval: Duration::from_secs(30),
         })
     }
 
     #[inline]
-    fn network_send(&self, pkt: &Packet) -> Result<()> {
+    fn network_send(&mut self, pkt: &Packet) -> Result<()> {
+        self.last_client_ping = Some(Instant::now());
         self.socket.send(pkt)
     }
 
@@ -83,6 +93,7 @@ impl Client {
     }
 
     pub fn network_insert(&mut self, pkt: &Packet) -> Result<()> {
+        self.last_server_ping = Some(Instant::now());
         let session = self.session.take().unwrap();
 
         let session = match session {
@@ -165,6 +176,33 @@ impl Client {
         self.session = Some(session);
         Ok(())
     }
+
+    pub fn send_ping(&mut self) -> Result<()> {
+        if let Some(Session::Channel(mut session)) = self.session.take() {
+            debug!("sending ping");
+            let pkt = session.encrypt(&[])?;
+            self.network_send(&pkt)?;
+
+            // TODO: reinserting is ugly
+            self.session = Some(Session::Channel(session));
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub fn timeout(&self) -> Duration {
+        self.ping_interval.clone() // TODO: inline maybe
+    }
+
+    pub fn ping_if_needed(&mut self) -> Result<()> {
+        if let Some(last_client_ping) = self.last_client_ping.clone() {
+            let now = Instant::now();
+            if now.duration_since(last_client_ping) > self.ping_interval {
+                self.send_ping()?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -213,16 +251,20 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>,
     info!("starting vpn session");
     client.start_session()?;
 
-    for x in rx {
+    loop {
         // TODO: connections are never timed out
-        match x {
-            Event::Udp(msg) => if let Err(e) = client.network_insert(&msg) {
+        match rx.recv_timeout(client.timeout()) {
+            Ok(Event::Udp(msg)) => if let Err(e) = client.network_insert(&msg) {
                 warn!("[udp] error: {:?}", e);
             },
-            Event::Tun(pkt) => if let Err(e) = client.tun_insert(&pkt) {
+            Ok(Event::Tun(pkt)) => if let Err(e) = client.tun_insert(&pkt) {
                 warn!("[tun] error: {:?}", e);
             },
+            Err(RecvTimeoutError::Timeout) => (),
+            Err(RecvTimeoutError::Disconnected) => break,
         }
+
+        client.ping_if_needed()?;
     }
 
     Ok(())
