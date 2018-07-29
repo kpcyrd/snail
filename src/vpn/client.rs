@@ -1,9 +1,11 @@
 use errors::{Result, Error, ResultExt};
 
 use args::snaild::Vpn;
-use config::{Config, VpnClientConfig};
+use config::Config;
+use sandbox;
 use vpn::{self, Hello, Iface};
 use vpn::crypto::{Session, Handshake};
+use vpn::ifconfig::{self, IfconfigChild};
 use vpn::transport::ClientTransport;
 use vpn::transport::udp::UdpClient;
 use vpn::wire::Packet;
@@ -24,12 +26,13 @@ pub struct Client {
     session: Option<Session>,
     socket: Arc<UdpClient>,
     tun: Arc<Iface>,
-    pending_hello: bool,
+    child: IfconfigChild,
 
     interface: String,
     remote: SocketAddr,
     tunnel_all_traffic: bool,
 
+    pending_hello: bool,
     last_client_ping: Option<Instant>,
     last_server_ping: Option<Instant>,
     ping_interval: Duration,
@@ -38,6 +41,7 @@ pub struct Client {
 impl Client {
     pub fn new(socket: Arc<UdpClient>,
                tun: Arc<Iface>,
+               child: IfconfigChild,
 
                interface: String,
                remote: SocketAddr,
@@ -55,6 +59,7 @@ impl Client {
             session: Some(Session::Handshake(handshake)),
             socket,
             tun,
+            child,
 
             interface,
             remote,
@@ -138,20 +143,20 @@ impl Client {
                         Hello::Welcome(settings) => {
                             info!("server accepted session and sent settings: {:?}", settings);
 
-                            vpn::ipconfig(&self.interface,
-                                          &settings.addr)?;
+                            self.child.ipconfig(&self.interface,
+                                                &settings.addr)?;
 
                             if self.tunnel_all_traffic {
                                 info!("redirecting all traffic");
 
                                 // add route for vpn server ip first
                                 if let SocketAddr::V4(ref remote) = self.remote {
-                                    let old_gateway = vpn::get_route(remote.ip())?;
+                                    let old_gateway = self.child.get_route(remote.ip())?;
                                     let route = Ipv4Inet::new(remote.ip().clone(), 32)?;
-                                    vpn::add_route(&route, &old_gateway)?;
+                                    self.child.add_route(&route, &old_gateway)?;
                                 }
 
-                                vpn::tunnel_all_traffic(&settings.gateway)?;
+                                self.child.tunnel_all_traffic(&settings.gateway)?;
                             }
                         },
                         Hello::Rejected(err) => {
@@ -252,21 +257,7 @@ pub fn udp_thread(tx: mpsc::Sender<Event>, socket: Arc<UdpClient>) -> Result<()>
     }
 }
 
-pub fn vpn_thread(rx: mpsc::Receiver<Event>,
-                  socket: Arc<UdpClient>,
-                  tun: Arc<Iface>,
-                  interface: String,
-                  vpn_config: &VpnClientConfig) -> Result<()> {
-    let mut client = Client::new(socket,
-                                 tun,
-
-                                 interface,
-                                 vpn_config.remote,
-                                 vpn_config.tunnel_all_traffic,
-
-                                 &vpn_config.server_pubkey,
-                                 &vpn_config.client_privkey)?;
-
+pub fn vpn_thread(rx: mpsc::Receiver<Event>, mut client: Client) -> Result<()> {
     info!("starting vpn session");
     client.start_session()?;
 
@@ -293,7 +284,12 @@ pub fn run(args: Vpn, config: &Config) -> Result<()> {
         .ok_or(format_err!("vpn not configured"))?.client.as_ref()
         .ok_or(format_err!("vpn client not configured"))?;
 
+    let child = ifconfig::spawn()?;
     let tun = Arc::new(vpn::open_tun(&args.interface)?);
+
+    sandbox::vpn_stage2(config)
+        .context("sandbox vpn_stage2 failed")?;
+
     let socket = Arc::new(UdpClient::connect(&vpn_config.remote)?);
     let (tx, rx) = mpsc::channel();
 
@@ -315,9 +311,19 @@ pub fn run(args: Vpn, config: &Config) -> Result<()> {
     };
 
     let t3 = {
-        let vpn_config = vpn_config.to_owned();
+        let client = Client::new(socket,
+                                 tun,
+                                 child,
+
+                                 args.interface,
+                                 vpn_config.remote,
+                                 vpn_config.tunnel_all_traffic,
+
+                                 &vpn_config.server_pubkey,
+                                 &vpn_config.client_privkey)?;
+
         thread::spawn(move || {
-            vpn_thread(rx, socket, tun, args.interface, &vpn_config)
+            vpn_thread(rx, client)
                 .expect("vpn thread failed");
         })
     };

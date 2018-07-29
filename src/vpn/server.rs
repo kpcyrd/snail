@@ -2,6 +2,7 @@ use errors::{Result, Error, ResultExt};
 
 use args::snaild::Vpnd;
 use config::{Config, VpnServerConfig};
+use sandbox;
 use vpn::{self, Hello};
 use vpn::crypto::{Handshake, Channel};
 use vpn::transport::ServerTransport;
@@ -377,6 +378,10 @@ pub fn run(args: Vpnd, config: &Config) -> Result<()> {
                   &vpn_config.gateway_ip)?;
 
     let socket = Arc::new(UdpServer::bind(&vpn_config.bind)?);
+
+    sandbox::vpnd_stage2(config)
+        .context("sandbox vpn_stage2 failed")?;
+
     let (tx, rx) = mpsc::channel();
 
     let t1 = {

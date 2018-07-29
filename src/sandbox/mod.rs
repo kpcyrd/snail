@@ -167,6 +167,38 @@ pub fn dns_stage3() -> Result<()> {
     Ok(())
 }
 
+pub fn vpn_stage1() -> Result<()> {
+    unimplemented!()
+}
+
+pub fn vpn_stage2(config: &Config) -> Result<()> {
+    let user = resolve_uid(&config)?;
+    chroot(CHROOT)?;
+    drop_user(user)?;
+    info!("vpn_stage 2/3 enabled");
+    Ok(())
+}
+
+pub fn vpn_stage3() -> Result<()> {
+    unimplemented!()
+}
+
+pub fn vpnd_stage1() -> Result<()> {
+    unimplemented!()
+}
+
+pub fn vpnd_stage2(config: &Config) -> Result<()> {
+    let user = resolve_uid(&config)?;
+    chroot(CHROOT)?;
+    drop_user(user)?;
+    info!("vpn_stage 2/3 enabled");
+    Ok(())
+}
+
+pub fn vpnd_stage3() -> Result<()> {
+    unimplemented!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

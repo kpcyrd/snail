@@ -380,6 +380,7 @@ fn run() -> Result<()> {
                     println!("privkey = \"{}\"", base64::encode(&privkey));
                     Ok(())
                 },
+                Some(SubCommand::Ifconfig(_args)) => vpn::ifconfig::run(),
                 None => {
                     error!("dhcp event expected but not found");
                     Ok(())

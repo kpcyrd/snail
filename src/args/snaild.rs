@@ -47,6 +47,10 @@ pub enum SubCommand {
                 name="vpn-keygen",
                 about="Generate a keypair for vpn")]
     VpnKeyGen(VpnKeyGen),
+    #[structopt(author = "",
+                name="ifconfig",
+                about="Sandbox helper process")]
+    Ifconfig(Ifconfig),
 }
 
 #[derive(StructOpt, Debug)]
@@ -76,4 +80,8 @@ pub struct Vpn {
 
 #[derive(StructOpt, Debug)]
 pub struct VpnKeyGen {
+}
+
+#[derive(StructOpt, Debug)]
+pub struct Ifconfig {
 }

@@ -9,6 +9,7 @@ use std::net::Ipv4Addr;
 
 pub mod crypto;
 pub mod client;
+pub mod ifconfig;
 pub mod server;
 pub mod transport;
 pub mod wire;
@@ -62,6 +63,7 @@ pub fn ipconfig(interface: &str, addr: &Ipv4Inet) -> Result<()> {
 }
 
 pub fn add_route(range: &Ipv4Inet, gateway: &Ipv4Addr) -> Result<()> {
+    utils::cmd("ip", &["route", "del", &range.to_string(), "via", &gateway.to_string()]).ok();
     utils::cmd("ip", &["route", "add", &range.to_string(), "via", &gateway.to_string()])
         .context("failed to set route")?;
     Ok(())
