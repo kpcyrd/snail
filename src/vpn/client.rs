@@ -150,8 +150,10 @@ impl Client {
                     }
                 } else {
                     let msg = session.decrypt(pkt)?;
-                    self.tun_send(&msg)
-                        .context("failed to write to tun device")?;
+                    if !msg.is_empty() {
+                        self.tun_send(&msg)
+                            .context("failed to write to tun device")?;
+                    }
                 }
                 Session::Channel(session)
             },
@@ -195,12 +197,20 @@ impl Client {
     }
 
     pub fn ping_if_needed(&mut self) -> Result<()> {
+        let now = Instant::now();
+
         if let Some(last_client_ping) = self.last_client_ping.clone() {
-            let now = Instant::now();
             if now.duration_since(last_client_ping) > self.ping_interval {
                 self.send_ping()?;
             }
         }
+
+        if let Some(last_server_ping) = self.last_server_ping.clone() {
+            if now.duration_since(last_server_ping) > self.ping_interval * 2 {
+                bail!("server doesn't respond");
+            }
+        }
+
         Ok(())
     }
 }

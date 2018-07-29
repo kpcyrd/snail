@@ -187,6 +187,9 @@ impl Server {
                 if !msg.is_empty() {
                     // TODO: verify src IP
                     self.tun_send(&msg)?;
+                } else {
+                    let pkt = channel.encrypt(&[])?;
+                    self.network_send(&pkt, src)?;
                 }
 
                 self.insert_channel(src, channel);
