@@ -187,12 +187,9 @@ impl Server {
                 if !msg.is_empty() {
                     // TODO: verify src IP
                     self.tun_send(&msg)?;
-
-                    let pkt = channel.encrypt(&msg)?;
-                    self.network_send(&pkt, src)?;
-
-                    self.insert_channel(src, channel);
                 }
+
+                self.insert_channel(src, channel);
             },
             Some(Session::Handshake(mut handshake)) => {
                 let pkt = pkt.handshake()?;
