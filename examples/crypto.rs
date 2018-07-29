@@ -38,13 +38,15 @@ fn main() {
         panic!("unauthorized client public key");
     }
 
-    let msg = responder.encrypt(b"hello from responder").unwrap();
-    println!("encrypted: {:?}", msg);
-    let msg = initiator.decrypt(&msg).unwrap();
+    let pkt = responder.encrypt(b"hello from responder").unwrap();
+    println!("encrypted: {:?}", pkt);
+    let pkt = pkt.transport().unwrap();
+    let msg = initiator.decrypt(&pkt).unwrap();
     println!("decrypted: {:?}", String::from_utf8(msg).unwrap());
 
-    let msg = initiator.encrypt(b"hello from initiator").unwrap();
-    println!("encrypted: {:?}", msg);
-    let msg = responder.decrypt(&msg).unwrap();
+    let pkt = initiator.encrypt(b"hello from initiator").unwrap();
+    println!("encrypted: {:?}", pkt);
+    let pkt = pkt.transport().unwrap();
+    let msg = responder.decrypt(&pkt).unwrap();
     println!("decrypted: {:?}", String::from_utf8(msg).unwrap());
 }
