@@ -6,6 +6,7 @@ use tun_tap::Iface;
 use tun_tap::Mode::Tun;
 
 use std::net::Ipv4Addr;
+use std::time::Duration;
 
 pub mod crypto;
 pub mod client;
@@ -23,10 +24,11 @@ pub enum Hello {
 }
 
 impl Hello {
-    pub fn welcome(addr: Ipv4Inet, gateway: Ipv4Addr) -> Hello {
+    pub fn welcome(addr: Ipv4Inet, gateway: Ipv4Addr, timeout: Duration) -> Hello {
         Hello::Welcome(HelloSettings {
             addr,
             gateway,
+            timeout,
         })
     }
 
@@ -39,6 +41,7 @@ impl Hello {
 pub struct HelloSettings {
     pub addr: Ipv4Inet,
     pub gateway: Ipv4Addr,
+    pub timeout: Duration,
 }
 
 pub fn open_tun(tun: &str)-> Result<Iface> {

@@ -20,6 +20,8 @@ use base64;
 use cidr::{Ipv4Inet, Inet};
 use serde_json;
 
+const PING_RETRY: u32 = 3;
+
 
 #[derive(Debug)]
 pub struct Client {
@@ -142,6 +144,7 @@ impl Client {
                     match msg {
                         Hello::Welcome(settings) => {
                             info!("server accepted session and sent settings: {:?}", settings);
+                            self.ping_interval = settings.timeout / PING_RETRY;
 
                             self.child.ipconfig(&self.interface,
                                                 &settings.addr)?;
@@ -220,7 +223,7 @@ impl Client {
         }
 
         if let Some(last_server_ping) = self.last_server_ping.clone() {
-            if now.duration_since(last_server_ping) > self.ping_interval * 2 {
+            if now.duration_since(last_server_ping) > self.ping_interval * PING_RETRY {
                 bail!("server doesn't respond");
             }
         }
@@ -273,7 +276,13 @@ pub fn vpn_thread(rx: mpsc::Receiver<Event>, mut client: Client) -> Result<()> {
             Err(RecvTimeoutError::Disconnected) => break,
         }
 
-        client.keepalive()?;
+        if let Err(err) = client.keepalive() {
+            error!("keepalive error: {}", err);
+            // TODO: unconfigure interface
+            // TODO: restart session
+            // client.start_session()?;
+            ::std::process::exit(1);
+        }
     }
 
     Ok(())

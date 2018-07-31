@@ -213,7 +213,8 @@ impl Server {
                     match self.setup_channel(src, &responder) {
                         Ok(addr) => {
                             let welcome = serde_json::to_string(&Hello::welcome(addr.clone(),
-                                                                                self.addr.address()))?;
+                                                                                self.addr.address(),
+                                                                                self.timeout.clone()))?;
                             let pkt = responder.encrypt(welcome.as_bytes())?;
 
                             self.network_send(&pkt, &src)?;
