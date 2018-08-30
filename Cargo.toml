@@ -66,7 +66,7 @@ webpki-roots = "0.15"
 nix = "0.11"
 zmq = "0.8.2"
 syscallz = "0.7"
-caps = "0.2"
+caps = "0.3"
 
 # vpn
 tun-tap = "0.1.1"

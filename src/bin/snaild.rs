@@ -393,7 +393,7 @@ fn run() -> Result<()> {
 fn main() {
     if let Err(err) = run() {
         eprintln!("Error: {}", err);
-        for cause in err.causes().skip(1) {
+        for cause in err.iter_chain().skip(1) {
             eprintln!("Because: {}", cause);
         }
         std::process::exit(1);
