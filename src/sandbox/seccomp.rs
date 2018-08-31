@@ -16,6 +16,7 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::ppoll)?;
     ctx.allow_syscall(Syscall::nanosleep)?;
     ctx.allow_syscall(Syscall::sched_getaffinity)?;
+    ctx.allow_syscall(Syscall::sched_yield)?;
     #[cfg(not(target_arch="arm"))]
     ctx.allow_syscall(Syscall::mmap)?;
     #[cfg(target_arch="arm")]
@@ -98,6 +99,7 @@ pub fn decap_stage3() -> Result<()> {
     ctx.allow_syscall(Syscall::ppoll)?;
     ctx.allow_syscall(Syscall::nanosleep)?;
     ctx.allow_syscall(Syscall::sched_getaffinity)?;
+    ctx.allow_syscall(Syscall::sched_yield)?;
     #[cfg(not(target_arch="arm"))]
     ctx.allow_syscall(Syscall::mmap)?;
     #[cfg(target_arch="arm")]
@@ -172,6 +174,7 @@ pub fn zmq_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::sendto)?;
     #[cfg(target_arch="arm")]
     ctx.allow_syscall(Syscall::send)?;
+    ctx.allow_syscall(Syscall::lseek)?;
     ctx.allow_syscall(Syscall::openat)?; // needed for stage1
     ctx.allow_syscall(Syscall::stat)?; // needed for stage1
     ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
@@ -273,6 +276,7 @@ pub fn dns_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::epoll_create1)?;
     ctx.allow_syscall(Syscall::getsockopt)?;
     ctx.allow_syscall(Syscall::getsockname)?;
+    ctx.allow_syscall(Syscall::lseek)?;
     ctx.allow_syscall(Syscall::bind)?;
     ctx.allow_syscall(Syscall::ioctl)?;
     ctx.allow_syscall(Syscall::mmap)?; // needed for stage1

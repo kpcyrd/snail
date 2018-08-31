@@ -100,6 +100,7 @@ fn run() -> Result<()> {
                 socket = sandbox::decap_stage2(&config, &socket)?;
             }
 
+            // TODO: if in standalone mode, don't
             let mut client = Client::connect(&socket)?;
             let mut status = match client.status()? {
                 Some(status) => status,
