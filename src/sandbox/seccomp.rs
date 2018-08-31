@@ -58,6 +58,7 @@ pub fn decap_stage1() -> Result<()> {
     ctx.allow_syscall(Syscall::brk)?;
     ctx.allow_syscall(Syscall::clock_gettime)?;
     ctx.allow_syscall(Syscall::gettimeofday)?;
+    ctx.allow_syscall(Syscall::uname)?;
     ctx.allow_syscall(Syscall::stat)?; // needed for stage1
     ctx.allow_syscall(Syscall::fstat)?; // needed for stage1
     #[cfg(target_arch = "arm")]

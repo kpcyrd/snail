@@ -1,5 +1,8 @@
 use dhcp;
 use std::net::IpAddr;
+use errors::*;
+
+use trust_dns_resolver;
 
 
 #[derive(Debug)]
@@ -53,6 +56,33 @@ impl NetworkStatus {
             has_uplink: None,
             script_used: None,
         }
+    }
+
+    pub fn empty() -> NetworkStatus {
+        NetworkStatus {
+            ssid: None,
+            router: String::new(),
+            dns: vec![],
+
+            has_uplink: None,
+            script_used: None,
+        }
+    }
+
+    pub fn from_system() -> Result<NetworkStatus> {
+        let (config, _opts) = trust_dns_resolver::system_conf::read_system_conf()?;
+        let dns = config.name_servers().iter()
+            .map(|x| x.socket_addr.ip().clone())
+            .collect();
+
+        Ok(NetworkStatus {
+            ssid: None,
+            router: String::new(),
+            dns: dns,
+
+            has_uplink: None,
+            script_used: None,
+        })
     }
 
     pub fn set_uplink_status(&mut self, uplink: Option<bool>) {
