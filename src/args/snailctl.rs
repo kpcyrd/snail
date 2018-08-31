@@ -65,9 +65,9 @@ pub struct Decap {
     #[structopt(long="dns",
                 help="Overwrite default dns servers")]
     pub dns: Vec<IpAddr>,
-    #[structopt(short="s", long="snaild",
-                help="Use snaild status")]
-    pub snaild: bool,
+    #[structopt(short="s", long="standalone",
+                help="Do not use snaild status")]
+    pub standalone: bool,
     #[structopt(short="f", long="skip-check",
                 help="Don't check for captive portal")]
     pub skip_check: bool,

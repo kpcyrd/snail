@@ -1,4 +1,4 @@
-use errors::Result;
+use errors::{Result, ResultExt};
 use config::Config;
 
 use caps::{self, CapSet, Capability};
@@ -37,7 +37,8 @@ pub fn chroot_socket_path(socket: &str, chroot: &str) -> Result<String> {
 }
 
 pub fn chroot(path: &str) -> Result<()> {
-    nix::unistd::chroot(path)?;
+    nix::unistd::chroot(path)
+        .context(format!("failed to chroot to {:?}", path))?;
     env::set_current_dir("/")?;
     Ok(())
 }
@@ -164,6 +165,38 @@ pub fn dns_stage3() -> Result<()> {
     seccomp::dns_stage3()?;
     info!("dns_stage 3/3 enabled");
     Ok(())
+}
+
+pub fn vpn_stage1() -> Result<()> {
+    unimplemented!()
+}
+
+pub fn vpn_stage2(config: &Config) -> Result<()> {
+    let user = resolve_uid(&config)?;
+    chroot(CHROOT)?;
+    drop_user(user)?;
+    info!("vpn_stage 2/3 enabled");
+    Ok(())
+}
+
+pub fn vpn_stage3() -> Result<()> {
+    unimplemented!()
+}
+
+pub fn vpnd_stage1() -> Result<()> {
+    unimplemented!()
+}
+
+pub fn vpnd_stage2(config: &Config) -> Result<()> {
+    let user = resolve_uid(&config)?;
+    chroot(CHROOT)?;
+    drop_user(user)?;
+    info!("vpn_stage 2/3 enabled");
+    Ok(())
+}
+
+pub fn vpnd_stage3() -> Result<()> {
+    unimplemented!()
 }
 
 #[cfg(test)]

@@ -37,6 +37,13 @@ extern crate futures;
 extern crate ct_logs;
 extern crate webpki_roots;
 
+extern crate tun_tap;
+extern crate snow;
+extern crate pktparse;
+extern crate byteorder;
+extern crate cidr;
+#[macro_use] extern crate nom;
+
 pub mod errors {
     pub use failure::{Error, ResultExt};
     pub type Result<T> = ::std::result::Result<T, Error>;
@@ -50,13 +57,14 @@ pub mod decap;
 pub mod dhcp;
 pub mod dns;
 pub mod html;
-pub mod json;
 pub mod ipc;
+pub mod json;
 pub mod recursor;
 pub mod runtime;
 pub mod sandbox;
 pub mod scripts;
 pub mod structs;
 pub mod utils;
+pub mod vpn;
 pub mod web;
 pub mod wifi;

@@ -6,6 +6,7 @@ extern crate env_logger;
 #[macro_use] extern crate failure;
 extern crate tempfile;
 extern crate serde_json;
+extern crate base64;
 
 use structopt::StructOpt;
 
@@ -18,6 +19,7 @@ use snail::ipc::{Server, Client, CtlRequest, CtlReply};
 use snail::recursor::DnsHandler;
 use snail::sandbox;
 use snail::scripts::Loader;
+use snail::vpn;
 use snail::wifi::NetworkStatus;
 
 use std::env;
@@ -366,6 +368,19 @@ fn run() -> Result<()> {
                 Some(SubCommand::Dns(_args)) => {
                     dns_thread(&socket, &config)
                 },
+                Some(SubCommand::Vpnd(args)) => {
+                    vpn::server::run(args, &config)
+                },
+                Some(SubCommand::Vpn(args)) => {
+                    vpn::client::run(args, &config)
+                },
+                Some(SubCommand::VpnKeyGen(_args)) => {
+                    let (pubkey, privkey) = vpn::crypto::gen_key()?;
+                    println!("pubkey = \"{}\"", base64::encode(&pubkey));
+                    println!("privkey = \"{}\"", base64::encode(&privkey));
+                    Ok(())
+                },
+                Some(SubCommand::Ifconfig(_args)) => vpn::ifconfig::run(),
                 None => {
                     error!("dhcp event expected but not found");
                     Ok(())
@@ -378,7 +393,7 @@ fn run() -> Result<()> {
 fn main() {
     if let Err(err) = run() {
         eprintln!("Error: {}", err);
-        for cause in err.causes().skip(1) {
+        for cause in err.iter_chain().skip(1) {
             eprintln!("Because: {}", cause);
         }
         std::process::exit(1);

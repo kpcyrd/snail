@@ -30,6 +30,7 @@ use snail::sandbox;
 use snail::scripts::Loader;
 use snail::utils;
 use snail::web::{self, HttpClient};
+use snail::wifi::NetworkStatus;
 
 
 fn run() -> Result<()> {
@@ -96,14 +97,21 @@ fn run() -> Result<()> {
             let mut loader = Loader::new();
             loader.load_all_scripts(&config)?;
 
+            // always request that info before entering stage2
+            let system_config = NetworkStatus::from_system()?;
+
             if !config.security.danger_disable_seccomp_security {
                 socket = sandbox::decap_stage2(&config, &socket)?;
             }
 
-            let mut client = Client::connect(&socket)?;
-            let mut status = match client.status()? {
-                Some(status) => status,
-                None => bail!("not connected to a network"),
+            let mut status = if !decap.standalone {
+                let mut client = Client::connect(&socket)?;
+                match client.status()? {
+                    Some(status) => status,
+                    None => bail!("not connected to a network"),
+                }
+            } else {
+                system_config
             };
 
             let dns = if decap.dns.is_empty() {
@@ -255,7 +263,7 @@ fn run() -> Result<()> {
 fn main() {
     if let Err(err) = run() {
         eprintln!("Error: {}", err);
-        for cause in err.causes().skip(1) {
+        for cause in err.iter_chain().skip(1) {
             eprintln!("Because: {}", cause);
         }
         std::process::exit(1);
