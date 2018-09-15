@@ -28,14 +28,11 @@ extern crate tokio_udp;
 extern crate tokio;
 extern crate mrsc;
 
+extern crate chrootable_https;
 extern crate hyper;
 extern crate http;
-extern crate hyper_rustls;
-extern crate rustls;
 extern crate tokio_core;
 extern crate futures;
-extern crate ct_logs;
-extern crate webpki_roots;
 
 extern crate tun_tap;
 extern crate snow;

@@ -6,8 +6,7 @@ use std::collections::HashMap;
 
 use dns::DnsResolver;
 use runtime;
-use web::HttpClient;
-use web::structs::{HttpSession, HttpRequest, RequestOptions};
+use web::{HttpClient, HttpSession, HttpRequest, RequestOptions};
 
 
 #[derive(Debug, Clone)]

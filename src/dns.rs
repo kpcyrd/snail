@@ -17,6 +17,8 @@ use trust_dns_resolver::config::{ResolverConfig,
 use std::io;
 use std::net::SocketAddr;
 
+pub use chrootable_https::DnsResolver;
+
 
 pub struct Resolver {
     resolver: tdr::Resolver,
@@ -90,10 +92,6 @@ impl fmt::Debug for Resolver {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "Resolver {{ ... }}")
     }
-}
-
-pub trait DnsResolver {
-    fn resolve(&self, name: &str) -> Result<Vec<IpAddr>>;
 }
 
 impl DnsResolver for Resolver {
