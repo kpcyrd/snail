@@ -41,11 +41,11 @@ rand = "0.5.1"
 base64 = "0.9"
 serde_urlencoded = "0.5.2"
 reduce = "0.1.1"
-users = "0.7.0"
+users = "0.8"
 tempfile = "3.0.2"
 url = "1.7"
 
-trust-dns-resolver = { version = "0.10.0-alpha.1", features = ["dns-over-https"] }
+trust-dns-resolver = { version = "0.10.0-alpha.1", features = ["dns-over-https-rustls"] }
 trust-dns-server = { version = "0.15.0-alpha.1", features = [], default_features=false }
 trust-dns-proto = { version = "0.5.0-alpha.1" }
 trust-dns = { version = "0.15.0-alpha.1", features=["serde-config"] }
@@ -53,7 +53,7 @@ tokio-udp = "0.1.1"
 tokio = "0.1.1"
 mrsc = "0.3.1"
 
-chrootable-https = "0.1.0"
+chrootable-https = "0.3.0"
 hyper = "0.12"
 http = "0.1.5"
 tokio-core = "0.1.17"
@@ -67,12 +67,12 @@ caps = "0.3"
 
 # vpn
 tun-tap = "0.1.1"
-snow = "0.3.0"
+snow = "0.4.0"
 pktparse = "0.3.0"
 byteorder = "1"
 nom = "4.0"
 cidr = "0.0.4"
 
 [dev-dependencies]
-pseudo = "0.1.0"
-boxxy = "0.7.0"
+pseudo = "0.2.0"
+boxxy = "0.8.0"

@@ -1,8 +1,9 @@
-use errors::Result;
+use errors::*;
 use std::time::Duration;
 use std::net::IpAddr;
 use std::fmt;
 
+use failure::Fail;
 use futures::Future;
 use futures::Poll;
 use tokio_core::reactor;
@@ -13,7 +14,8 @@ use trust_dns_resolver::config::{ResolverConfig,
                                  NameServerConfig,
                                  NameServerConfigGroup,
                                  Protocol};
-
+use trust_dns_resolver::error::ResolveErrorKind;
+use chrootable_https::dns::{DnsReply, DnsError, RecordType};
 use std::io;
 use std::net::SocketAddr;
 
@@ -101,6 +103,19 @@ impl DnsResolver for Resolver {
             Err(err) => bail!("resolve error: {}", err),
         };
         Ok(response)
+    }
+
+    fn resolve_adv(&self, name: &str, record: RecordType) -> Result<DnsReply> {
+        match self.resolver.lookup(name, record) {
+            Ok(reply) => Ok(reply.into()),
+            Err(err) => match err.kind() {
+                ResolveErrorKind::NoRecordsFound {
+                    query: _,
+                    valid_until: _,
+                } => Ok(DnsError::NXDomain.into()),
+                _ => Err(err.context("Failed to resolve").into()),
+            },
+        }
     }
 }
 
