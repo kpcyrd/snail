@@ -267,7 +267,7 @@ impl RequestHandler for DnsHandler {
         };
 
         debug!("dns(resp): {}: {:?}", request.src, msg);
-        response_handle.send(msg)?;
+        response_handle.send_response(msg)?;
 
         Ok(())
     }

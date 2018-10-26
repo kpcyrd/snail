@@ -93,7 +93,7 @@ impl Handshake {
     }
 
     pub fn channel(self) -> Result<Channel> {
-        let noise = self.noise.into_transport_mode()
+        let noise = self.noise.into_stateless_transport_mode()
                             .context("could not switch into transport mode")?;
         Ok(Channel {
             noise,
@@ -126,8 +126,7 @@ impl Channel {
         }
         self.nonce = Some(packet.nonce);
 
-        self.noise.set_receiving_nonce(packet.nonce)?;
-        let n = self.noise.read_message(&packet.bytes, &mut buf)
+        let n = self.noise.read_message_with_nonce(packet.nonce, &packet.bytes, &mut buf)
                         .context("failed to read noise")?;
 
         Ok(buf[..n].to_vec())

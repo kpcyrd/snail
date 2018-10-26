@@ -1,13 +1,11 @@
 use scripts::ctx::State;
 use dns::DnsResolver;
-use web::HttpClient;
 use hlua::{self, AnyLuaValue};
 use std::sync::Arc;
 use hlua::AnyHashableLuaValue;
 use failure::ResultExt;
 use std::collections::HashMap;
-use web::structs::RequestOptions;
-use web::structs::HttpRequest;
+use web::{HttpClient, RequestOptions, HttpRequest};
 use errors::{Result, Error};
 
 

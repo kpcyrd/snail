@@ -1,174 +1,273 @@
-use hyper::{self, Body};
-use http::response::Parts;
-use hyper_rustls::HttpsConnector;
-use hyper::rt::Future;
-use hyper::client::connect::HttpConnector;
-use http::Request;
+pub use chrootable_https::{Client, HttpClient};
 
-use tokio_core::reactor;
-use futures::{future, Stream};
-
-use std::net::IpAddr;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use http::Uri;
+use std::collections::{HashMap, HashSet};
+use std::ops::Deref;
 use errors::Result;
-
-mod connector;
-use self::connector::Connector;
+use hlua::AnyLuaValue;
+use scripts::ctx::State;
+use serde_json;
 use dns::DnsResolver;
-pub mod structs;
+use rand::{Rng, thread_rng};
+use rand::distributions::Alphanumeric;
+use structs::LuaMap;
+use json::LuaJsonValue;
+use http::Uri;
+use http::uri::Parts;
+use hyper::{Request, Body};
+use serde_urlencoded;
+use base64;
 
 
 #[derive(Debug)]
-pub struct Client<R: DnsResolver> {
-    client: hyper::Client<HttpsConnector<Connector<HttpConnector>>>,
-    resolver: R,
-    records: Arc<Mutex<HashMap<String, IpAddr>>>,
+pub struct HttpSession {
+    id: String,
+    pub cookies: CookieJar,
 }
 
-impl<R: DnsResolver> Client<R> {
-    pub fn new(resolver: R) -> Client<R> {
-        let records = Arc::new(Mutex::new(HashMap::new()));
-        let https = Connector::https(records.clone());
-        let client = hyper::Client::builder()
-            .keep_alive(false)
-            .build::<_, hyper::Body>(https);
-
-        Client {
-            client,
-            resolver,
-            records,
-        }
+impl HttpSession {
+    pub fn new() -> (String, HttpSession) {
+        let id: String = thread_rng().sample_iter(&Alphanumeric).take(16).collect();
+        (id.clone(), HttpSession {
+            id,
+            cookies: CookieJar::default(),
+        })
     }
+}
 
-    pub fn pre_resolve(&self, uri: &Uri) -> Result<()> {
-        let host = match uri.host() {
-            Some(host) => host,
-            None => bail!("url has no host"),
+#[derive(Debug, Default, Deserialize)]
+pub struct RequestOptions {
+    query: Option<HashMap<String, String>>,
+    headers: Option<HashMap<String, String>>,
+    basic_auth: Option<(String, String)>,
+    user_agent: Option<String>,
+    json: Option<serde_json::Value>,
+    form: Option<serde_json::Value>,
+    body: Option<String>,
+}
+
+impl RequestOptions {
+    pub fn try_from(x: AnyLuaValue) -> Result<RequestOptions> {
+        let x = LuaJsonValue::from(x);
+        let x = serde_json::from_value(x.into())?;
+        Ok(x)
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct HttpRequest {
+    // reference to the HttpSession
+    session: String,
+    cookies: CookieJar,
+    method: String,
+    url: String,
+    query: Option<HashMap<String, String>>,
+    headers: Option<HashMap<String, String>>,
+    basic_auth: Option<(String, String)>,
+    user_agent: Option<String>,
+    body: Option<ReqBody>,
+}
+
+impl HttpRequest {
+    pub fn new(session: &HttpSession, method: String, url: String, options: RequestOptions) -> HttpRequest {
+        let cookies = session.cookies.clone();
+
+        let user_agent = options.user_agent.or_else(|| Some("snail agent".to_string())); // TODO
+
+        let mut request = HttpRequest {
+            session: session.id.clone(),
+            cookies,
+            method,
+            url,
+            query: options.query,
+            headers: options.headers,
+            basic_auth: options.basic_auth,
+            user_agent,
+            body: None,
         };
 
-        let record = self.resolver.resolve(&host)?;
-        match record.into_iter().next() {
-            Some(record) => {
-                let mut cache = self.records.lock().unwrap();
-                cache.insert(host.to_string(), record);
-            },
-            None => bail!("no record found"),
+        if let Some(json) = options.json {
+            request.body = Some(ReqBody::Json(json));
         }
-        Ok(())
+
+        if let Some(form) = options.form {
+            request.body = Some(ReqBody::Form(form));
+        }
+
+        if let Some(text) = options.body {
+            request.body = Some(ReqBody::Raw(text));
+        }
+
+        request
     }
 
-    pub fn get(&self, url: &str) -> Result<Response> {
-        let url = url.parse::<Uri>()?;
+    pub fn send<C: HttpClient, R: DnsResolver>(&self, state: &State<C, R>) -> Result<LuaMap> {
+        let mut url = self.url.parse::<Uri>()?;
 
-        self.pre_resolve(&url)?;
+        // set query string
+        if let Some(query) = &self.query {
+            url = {
+                let mut parts = Parts::from(url);
 
-        let mut request = Request::builder();
-        let request = request.uri(url.clone())
-               .body(Body::empty())?;
+                let query = serde_urlencoded::to_string(query)?;
 
-        self.request(&url, request)
-    }
-}
+                parts.path_and_query = Some(match parts.path_and_query {
+                    Some(pq) => {
+                        format!("{}?{}", pq.path(), query)
+                    },
+                    None => format!("/?{}", query),
+                }.parse()?);
 
-pub trait HttpClient {
-    fn request(&self, url: &Uri, request: Request<hyper::Body>) -> Result<Response>;
-}
+                Uri::from_parts(parts)?
+            };
+        }
 
-impl<R: DnsResolver> HttpClient for Client<R> {
-    fn request(&self, url: &Uri, request: Request<hyper::Body>) -> Result<Response> {
-        info!("sending request to {:?}", url);
+        // start setting up request
+        let mut req = Request::builder();
+        req.method(self.method.as_str());
+        req.uri(url);
 
-        self.pre_resolve(url)?;
+        let mut observed_headers = HashSet::new();
 
-        let mut core = reactor::Core::new()?;
-        let (parts, body) = core.run(self.client.request(request).and_then(|res| {
-            debug!("http response: {:?}", res);
-            let (parts, body) = res.into_parts();
-            let body = body.concat2();
-            (future::ok(parts), body)
-        }))?;
+        // set cookies
+        {
+            use hyper::header::COOKIE;
+            let mut cookies = String::new();
 
-        let body = String::from_utf8_lossy(&body);
-        let reply = Response::from((parts, body.to_string()));
-        info!("got reply {:?}", reply);
-        Ok(reply)
-    }
-}
-
-#[derive(Debug)]
-pub struct Response {
-    pub status: u16,
-    pub headers: HashMap<String, String>,
-    pub cookies: Vec<String>,
-    pub body: String,
-}
-
-impl From<(Parts, String)> for Response {
-    fn from(x: (Parts, String)) -> Response {
-        let parts = x.0;
-        let body = x.1;
-
-        let cookies = parts.headers.get_all("set-cookie").into_iter()
-                        .flat_map(|x| x.to_str().map(|x| x.to_owned()).ok())
-                        .collect();
-
-        let mut headers = HashMap::new();
-
-        for (k, v) in parts.headers {
-            if let Some(k) = k {
-                if let Ok(v) = v.to_str() {
-                    let k = String::from(k.as_str());
-                    let v = String::from(v);
-
-                    headers.insert(k, v);
+            for (key, value) in self.cookies.iter() {
+                if !cookies.is_empty() {
+                    cookies += "; ";
                 }
+                cookies.push_str(&format!("{}={}", key, value));
+            }
+
+            if !cookies.is_empty() {
+                req.header(COOKIE, cookies.as_str());
+                observed_headers.insert(COOKIE.as_str().to_lowercase());
             }
         }
 
-        Response {
-            status: parts.status.as_u16(),
-            headers,
-            cookies,
-            body,
+        // add headers
+        if let Some(ref agent) = self.user_agent {
+            use hyper::header::USER_AGENT;
+            req.header(USER_AGENT, agent.as_str());
+            observed_headers.insert(USER_AGENT.as_str().to_lowercase());
         }
+
+        if let Some(ref auth) = self.basic_auth {
+            use hyper::header::AUTHORIZATION;
+            let &(ref user, ref password) = auth;
+
+            let auth = base64::encode(&format!("{}:{}", user, password));
+            let auth = format!("Basic {}", auth);
+            req.header(AUTHORIZATION, auth.as_str());
+            observed_headers.insert(AUTHORIZATION.as_str().to_lowercase());
+        }
+
+        if let Some(ref headers) = self.headers {
+            for (k, v) in headers {
+                req.header(k.as_str(), v.as_str());
+                observed_headers.insert(k.to_lowercase());
+            }
+        }
+
+        // finalize request
+        let body = match self.body {
+            Some(ReqBody::Raw(ref x))  => { Body::from(x.clone()) },
+            Some(ReqBody::Form(ref x)) => {
+                // if Content-Type is not set, set header
+                if !observed_headers.contains("content-type") {
+                    req.header("Content-Type", "application/x-www-form-urlencoded");
+                }
+                Body::from(serde_urlencoded::to_string(x)?)
+            },
+            Some(ReqBody::Json(ref x)) => {
+                // if Content-Type is not set, set header
+                if !observed_headers.contains("content-type") {
+                    req.header("Content-Type", "application/json");
+                }
+                Body::from(serde_json::to_string(x)?)
+            },
+            None => Body::empty(),
+        };
+        let req = req.body(body)?;
+
+        // send request
+        let res = state.http.request(req)?;
+
+        // map result to LuaMap
+        let mut resp = LuaMap::new();
+        resp.insert_num("status", f64::from(res.status));
+
+        for cookie in &res.cookies {
+            HttpRequest::register_cookies_on_state(&self.session, state, cookie);
+        }
+
+        let mut headers = LuaMap::new();
+        for (key, value) in res.headers {
+            headers.insert_str(key.to_lowercase(), value);
+        }
+        resp.insert("headers", headers);
+
+        resp.insert_str("text", String::from_utf8_lossy(&res.body));
+
+        Ok(resp)
+    }
+
+    fn register_cookies_on_state<C: HttpClient, R: DnsResolver>(session: &str, state: &State<C, R>, cookie: &str) {
+        let mut key = String::new();
+        let mut value = String::new();
+        let mut in_key = true;
+
+        for c in cookie.as_bytes() {
+            match *c as char {
+                '=' if in_key => in_key = false,
+                ';' => break,
+                c if in_key => key.push(c),
+                c => value.push(c),
+            }
+        }
+
+        state.register_in_jar(session, key, value);
     }
 }
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use dns::Resolver;
-
-    #[test]
-    #[ignore]
-    fn verify_200_http() {
-        let resolver = Resolver::cloudflare();
-
-        let client = Client::new(resolver);
-        let reply = client.get("http://httpbin.org/anything").expect("request failed");
-        assert_eq!(reply.status, 200);
+impl HttpRequest {
+    pub fn try_from(x: AnyLuaValue) -> Result<HttpRequest> {
+        let x = LuaJsonValue::from(x);
+        let x = serde_json::from_value(x.into())?;
+        Ok(x)
     }
+}
 
-    #[test]
-    #[ignore]
-    fn verify_200_https() {
-        let resolver = Resolver::cloudflare();
-
-        let client = Client::new(resolver);
-        let reply = client.get("https://httpbin.org/anything").expect("request failed");
-        assert_eq!(reply.status, 200);
+impl Into<AnyLuaValue> for HttpRequest {
+    fn into(self) -> AnyLuaValue {
+        let v = serde_json::to_value(&self).unwrap();
+        LuaJsonValue::from(v).into()
     }
+}
 
-    #[test]
-    #[ignore]
-    fn verify_302() {
-        let resolver = Resolver::cloudflare();
+// see https://github.com/seanmonstar/reqwest/issues/14 for proper cookie jars
+// maybe change this to reqwest::header::Cookie
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct CookieJar(HashMap<String, String>);
 
-        let client = Client::new(resolver);
-        let reply = client.get("https://httpbin.org/redirect-to?url=/anything&status=302").expect("request failed");
-        assert_eq!(reply.status, 302);
+impl CookieJar {
+    pub fn register_in_jar(&mut self, key: String, value: String) {
+        self.0.insert(key, value);
     }
+}
+
+impl Deref for CookieJar {
+    type Target = HashMap<String, String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ReqBody {
+    Raw(String), // TODO: maybe Vec<u8>
+    Form(serde_json::Value),
+    Json(serde_json::Value),
 }

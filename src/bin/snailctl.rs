@@ -18,6 +18,9 @@ use reduce::Reduce;
 use http::{Request, Uri};
 use hyper::Body;
 
+use std::io;
+use std::io::prelude::*;
+
 use snail::args;
 use snail::args::snailctl::{Args, SubCommand};
 use snail::config;
@@ -188,11 +191,11 @@ fn run() -> Result<()> {
             let url = http.url.parse::<Uri>()?;
 
             let mut request = Request::builder();
-            let request = request.uri(url.clone())
+            let request = request.uri(url)
                    .method(http.method.as_str())
                    .body(Body::empty())?;
 
-            let res = client.request(&url, request)?;
+            let res = client.request(request)?;
             debug!("{:?}", res);
 
             info!("status: {}", res.status);
@@ -200,7 +203,7 @@ fn run() -> Result<()> {
                 info!("{:?}: {:?}", key, value);
             }
 
-            print!("{}", res.body);
+            io::stdout().write(&res.body)?;
         },
         Some(SubCommand::Connect(connect)) => {
             let mut client = Client::connect(&socket)?;
