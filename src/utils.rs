@@ -85,7 +85,7 @@ pub fn parse_scan_output(output: &str) -> Result<Vec<Network>> {
             ap = Some(cell.get(1).unwrap().as_str().to_string());
             // println!("got ap {:?}", ap);
         } else {
-            let trimmed = line.trim_left();
+            let trimmed = line.trim_start();
 
             if trimmed.starts_with("Encryption key:") {
                 encryption = Some(String::from(&trimmed[15..]));

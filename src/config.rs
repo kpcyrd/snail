@@ -9,6 +9,7 @@ use trust_dns::rr::LowerName;
 use std::fs;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::collections::HashMap;
+use std::path::Path;
 
 
 pub const PATH: &str = "/etc/snail/snail.conf";
@@ -148,8 +149,12 @@ fn default_agent() -> String {
 }
 
 pub fn read_from(path: &str) -> Result<Config> {
-    let text = fs::read_to_string(path)?;
-    load(&text)
+    if Path::new(path).exists() {
+        let text = fs::read_to_string(path)?;
+        load(&text)
+    } else {
+        Ok(Config::default())
+    }
 }
 
 #[inline]

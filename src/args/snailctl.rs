@@ -1,4 +1,4 @@
-use structopt::clap::AppSettings;
+use structopt::clap::{AppSettings, Shell};
 use std::net::IpAddr;
 
 
@@ -41,18 +41,15 @@ pub enum SubCommand {
                 name="http",
                 about="Run http request inside target network")]
     Http(Http),
-    #[structopt(author = "",
-                name="connect",
-                about="Open tcp connection inside target network")]
+    /// Open a tcp connection inside the target network
+    #[structopt(author = "", name="connect")]
     Connect(Connect),
-    #[structopt(author = "",
-                name="doh",
-                about="Resolve a dns name with dns-over-https")]
+    /// Resolve a dns name with dns-over-https
+    #[structopt(author = "", name="doh")]
     Doh(Dns),
-    #[structopt(author = "",
-                name="bash-completion",
-                about="Generate bash completion script for the snailctl command")]
-    BashCompletion,
+    /// Generate shell completions
+    #[structopt(author="", name="completions")]
+    Completions(Completions),
 }
 
 #[derive(StructOpt, Debug)]
@@ -106,4 +103,10 @@ pub struct Connect {
     pub host: String,
     #[structopt(help="Destination port")]
     pub port: u16,
+}
+
+#[derive(StructOpt, Debug)]
+pub struct Completions {
+    #[structopt(raw(possible_values="&Shell::variants()"))]
+    pub shell: Shell,
 }

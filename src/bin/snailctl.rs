@@ -18,7 +18,8 @@ use reduce::Reduce;
 use http::{Request, Uri};
 use hyper::Body;
 
-use snail::args;
+use std::io::stdout;
+
 use snail::args::snailctl::{Args, SubCommand};
 use snail::config;
 use snail::connect;
@@ -227,9 +228,9 @@ fn run() -> Result<()> {
                 println!("{}", ip);
             }
         },
-        Some(SubCommand::BashCompletion) => {
-            args::gen_completions::<args::snailctl::Args>("snailctl");
-        },
+        Some(SubCommand::Completions(args)) => {
+            Args::clap().gen_completions_to("snailctl", args.shell, &mut stdout());
+        }
         None => {
             // use empty network status, we don't actually run those scripts
             let mut loader = Loader::new();
