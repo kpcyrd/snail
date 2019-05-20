@@ -21,12 +21,6 @@ extern crate caps;
 extern crate url;
 
 extern crate trust_dns_resolver;
-extern crate trust_dns_server;
-extern crate trust_dns_proto;
-extern crate trust_dns;
-extern crate tokio_udp;
-extern crate tokio;
-extern crate mrsc;
 
 extern crate hyper;
 extern crate http;
@@ -36,13 +30,6 @@ extern crate tokio_core;
 extern crate futures;
 extern crate ct_logs;
 extern crate webpki_roots;
-
-extern crate tun_tap;
-extern crate snow;
-extern crate pktparse;
-extern crate byteorder;
-extern crate cidr;
-#[macro_use] extern crate nom;
 
 pub mod errors {
     pub use failure::{Error, ResultExt};
@@ -59,12 +46,10 @@ pub mod dns;
 pub mod html;
 pub mod ipc;
 pub mod json;
-pub mod recursor;
 pub mod runtime;
 pub mod sandbox;
 pub mod scripts;
 pub mod structs;
 pub mod utils;
-pub mod vpn;
 pub mod web;
 pub mod wifi;
