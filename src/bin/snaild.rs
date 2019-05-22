@@ -6,7 +6,6 @@ extern crate env_logger;
 #[macro_use] extern crate failure;
 extern crate tempfile;
 extern crate serde_json;
-extern crate base64;
 
 use structopt::StructOpt;
 
@@ -16,10 +15,8 @@ use snail::decap;
 use snail::dhcp;
 use snail::errors::{Result, ResultExt};
 use snail::ipc::{Server, Client, CtlRequest, CtlReply};
-use snail::recursor::DnsHandler;
 use snail::sandbox;
 use snail::scripts::Loader;
-use snail::vpn;
 use snail::wifi::NetworkStatus;
 
 use std::env;
@@ -145,26 +142,6 @@ fn decap_thread(socket: &str, config: &Config) -> Result<()> {
             debug!("sent network status update");
         }
     }
-
-    Ok(())
-}
-
-fn dns_thread(socket: &str, config: &Config) -> Result<()> {
-    if !config.security.danger_disable_seccomp_security {
-        sandbox::dns_stage1()
-            .context("sandbox dns_stage1 failed")?;
-    }
-
-    let server = DnsHandler::new(&config)?;
-    // bind before we drop the uid
-    let udp_socket = DnsHandler::bind(&config)?;
-
-    if !config.security.danger_disable_seccomp_security {
-        sandbox::dns_stage2(&config, &socket)
-            .context("sandbox dns_stage2 failed")?;
-    }
-
-    server.run(udp_socket, config)?;
 
     Ok(())
 }
@@ -341,17 +318,6 @@ fn run() -> Result<()> {
                         .stderr(Stdio::inherit())
                         .spawn()?;
 
-                    if let Some(dns) = &config.dns {
-                        if !dns.standalone {
-                            let _dns_child = Command::new(&myself)
-                                .args(&["dns"])
-                                .stdin(Stdio::null())
-                                .stdout(Stdio::inherit())
-                                .stderr(Stdio::inherit())
-                                .spawn()?;
-                        }
-                    }
-
                     zmq_thread(&socket, decap_child, &mut config)
                 },
                 Some(SubCommand::Dhcp(args)) => {
@@ -365,22 +331,6 @@ fn run() -> Result<()> {
                 Some(SubCommand::Decap) => {
                     decap_thread(&socket, &config)
                 },
-                Some(SubCommand::Dns(_args)) => {
-                    dns_thread(&socket, &config)
-                },
-                Some(SubCommand::Vpnd(args)) => {
-                    vpn::server::run(args, &config)
-                },
-                Some(SubCommand::Vpn(args)) => {
-                    vpn::client::run(args, &config)
-                },
-                Some(SubCommand::VpnKeyGen(_args)) => {
-                    let (pubkey, privkey) = vpn::crypto::gen_key()?;
-                    println!("pubkey = \"{}\"", base64::encode(&pubkey));
-                    println!("privkey = \"{}\"", base64::encode(&privkey));
-                    Ok(())
-                },
-                Some(SubCommand::Ifconfig(_args)) => vpn::ifconfig::run(),
                 None => {
                     error!("dhcp event expected but not found");
                     Ok(())

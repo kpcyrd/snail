@@ -1,14 +1,12 @@
 use errors::Result;
 use ipc;
 
-use cidr::Ipv4Inet;
 use toml;
 use users;
-use trust_dns::rr::LowerName;
 
 use std::fs;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::path::Path;
 
 
@@ -21,7 +19,6 @@ pub struct Config {
     #[serde(default)]
     pub security: SecurityConfig,
     pub dns: Option<DnsConfig>,
-    pub vpn: Option<VpnConfig>,
     #[serde(default)]
     pub scripts: ScriptConfig,
 }
@@ -71,52 +68,9 @@ pub struct SecurityConfig {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct DnsConfig {
-    #[serde(default)]
-    pub standalone: bool,
-
-    pub bind: SocketAddr,
-
     pub servers: Vec<IpAddr>,
     pub port: u16,
     pub sni: String,
-
-    #[serde(default)]
-    pub records: HashMap<String, Vec<IpAddr>>,
-    #[serde(default)]
-    pub zones: HashMap<LowerName, Vec<IpAddr>>,
-}
-
-#[derive(Debug, PartialEq, Default, Clone, Serialize, Deserialize)]
-pub struct VpnConfig {
-    pub server: Option<VpnServerConfig>,
-    pub client: Option<VpnClientConfig>,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct VpnServerConfig {
-    pub bind: SocketAddr,
-
-    pub server_pubkey: String,
-    pub server_privkey: String,
-
-    pub gateway_ip: Ipv4Inet,
-    pub pool_start: Ipv4Addr,
-    pub pool_end: Ipv4Addr,
-
-    pub clients: Vec<String>,
-
-    pub ping_timeout: Option<u64>,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct VpnClientConfig {
-    pub remote: SocketAddr,
-
-    pub server_pubkey: String,
-    pub client_privkey: String,
-
-    #[serde(default)]
-    pub tunnel_all_traffic: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
