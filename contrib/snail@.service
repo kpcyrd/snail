@@ -1,6 +1,10 @@
 [Unit]
 Description=snaild, parasitic network manager (%I)
 Documentation=https://github.com/kpcyrd/snail
+Wants=network.target
+Before=network.target
+BindsTo=sys-subsystem-net-devices-%i.device
+After=sys-subsystem-net-devices-%i.device
 
 [Service]
 ExecStart=/usr/bin/snaild -S ipc:///run/snail/snail.sock start %I
@@ -17,4 +21,5 @@ ReadWritePaths=/run
 ReadWritePaths=/var/lib/dhcpcd
 
 [Install]
-WantedBy=network-online.target
+#WantedBy=network-online.target
+WantedBy=multi-user.target
